@@ -1,0 +1,9 @@
+# Files in the repo that are not part of the website
+.git
+Code.gs
+SETUP.md
+CLAUDE.md
+wrangler.jsonc
+.assetsignore
+src
+build.sh
