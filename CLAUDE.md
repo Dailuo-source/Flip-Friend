@@ -12,7 +12,8 @@ Business app for **Refinished by Cecilia**, Gary and Cecilia's furniture flippin
 | Google account | **refinishedbycecilia@gmail.com** owns everything Google. In Gary's Chrome it is the second account (`/u/1/`); `/u/0/` is his personal account. Always check which account is on screen before creating or deploying anything. |
 | Database | Google Sheet **Flip Friend**, id `1YqmdD-ECb-fIfLYIwwTyN0O6OXOiaqmR0h293Gddb0E`, in the business Drive's **Flip Friend** folder. |
 | Pictures and receipts | Drive folders next to the sheet: `Project photos`, `Inspiration`, `Receipts/yyyy-MM` (made by the script). Pictures stay private and are sent to the app through the API, then cached on the phone (IndexedDB `ff-img`). |
-| Backend | Apps Script bound to the sheet; source is `Code.gs` here. |
+| Backend | Apps Script project **Flip Friend** bound to the sheet (script id `1IJM_uOLskm8FdL_SyJ-ktHj5s8J1YHTEySjQQTSZ5IiHlyx3lsXb4td6`); source is `Code.gs` here. One web app deployment ("Flip Friend app", Execute as refinishedbycecilia, Anyone), deployed Oct 17, 2026. Its /exec link is saved in Script Properties (`WEB_APP_URL`) and shown by the sheet menu; keep updating that same deployment so the phone link never changes. |
+| Opening the script | **Extensions → Apps Script fails for the business account** (Google multi-account bug: "unable to open the file"). Open it directly instead: `https://script.google.com/u/1/home/projects/<script id>/edit`, and check the avatar says Cecilia. |
 | Connecting a phone | Sheet menu **Flip Friend → Show app key and phone link** gives `https://flip-friend.pages.dev/#api=<exec>&key=<key>`; the app stores both in localStorage (`ff.api`, `ff.key`). |
 | Old tracker | `1XsPVOGyllMuS-1o-lc1IAOZGysFvE3xGWb1IbAkjPd4`. Only the "Project Schedule" and "Furniture Cost Breakdown" tabs may be read; never the others. History was copied from them on Oct 17, 2026. |
 
