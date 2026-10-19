@@ -18,7 +18,7 @@ function openSheet(html,handlers,mount){
   syncGuard();return sh;
 }
 function closeSheet(){const el=$("#scrim");if(!el)return;el.remove();SH=null;syncGuard();}
-function openProject(id,sub){VIEW.project=id;VIEW.sub=sub||"steps";window.scrollTo(0,0);render();syncGuard();}
+function openProject(id,sub){VIEW.project=id;VIEW.sub=sub||"steps";if(!DESK)window.scrollTo(0,0);else{const sd=document.querySelector(".dk-side");if(sd)sd.scrollTop=0;}render();syncGuard();}
 function closeProject(){VIEW.project=null;render();syncGuard();}
 window.addEventListener("popstate",()=>{
   if(skipPop>0){skipPop--;return;}

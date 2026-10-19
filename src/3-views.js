@@ -7,7 +7,8 @@ let TIMER=null;try{TIMER=JSON.parse(LS.get("timer","null"));}catch(e){TIMER=null
 const TABS=[["home","Home",I.home],["projects","Projects",I.projects],["listings","Listings",I.listings],["supplies","Supplies",I.supplies],["money","Money",I.money]];
 
 function renderNav(){
-  $("#tabs").innerHTML='<div class="in">'+TABS.map(t=>`<button type="button" data-tab="${t[0]}" class="${VIEW.tab===t[0]&&!VIEW.project?"on":""}"${VIEW.tab===t[0]?' aria-current="page"':""}>${t[2]}${t[1]}</button>`).join("")+"</div>";
+  document.body.classList.toggle("desk",DESK);
+  if(DESK)$("#tabs").innerHTML=deskNav();else $("#tabs").innerHTML='<div class="in">'+TABS.map(t=>`<button type="button" data-tab="${t[0]}" class="${VIEW.tab===t[0]&&!VIEW.project?"on":""}"${VIEW.tab===t[0]?' aria-current="page"':""}>${t[2]}${t[1]}</button>`).join("")+"</div>";
   $("#tabs").hidden=!API||!KEY||auth==="need";
 }
 function render(){
@@ -16,13 +17,14 @@ function render(){
   if(!API||!KEY||auth==="need"){app.innerHTML=viewConnect();return;}
   if(!ready){app.innerHTML=`<header class="top">${LOGO}<div class="grow"><h1>Flip Friend</h1><div class="sub">Refinished by Cecilia</div></div><button type="button" class="sync" id="sync" data-act="sync">Connecting…</button></header><div class="empty">Loading your projects…</div>`;return;}
   let html;
-  if(VIEW.project&&pById(VIEW.project))html=viewProject(pById(VIEW.project));
+  if(DESK)html=deskView();
+  else if(VIEW.project&&pById(VIEW.project))html=viewProject(pById(VIEW.project));
   else{VIEW.project=null;html={home:viewHome,projects:viewProjects,listings:viewListings,supplies:viewSupplies,money:viewMoney}[VIEW.tab]();}
   app.innerHTML=html;
   setSync(inflight?(queue.length?"saving":"loading"):auth!=="ok"?"off":lastSync?"ok":"connecting");
   hydrateImages(app);tickTimers();
 }
-function onData(){if(ready)render();}
+function onData(){if(!ready)return;if(holdRender()){heldRender=true;return;}render();}
 const syncBtn='<button type="button" class="sync" id="sync" data-act="sync">…</button>';
 const monthNav=()=>`<div class="row" style="gap:4px"><button type="button" class="icon-btn" style="width:36px;height:36px" data-act="month" data-v="-1" aria-label="Previous month">${I.left}</button><span class="b small" style="min-width:96px;text-align:center;font-size:13px">${esc(monthName(VIEW.month))}</span><button type="button" class="icon-btn" style="width:36px;height:36px" data-act="month" data-v="1" aria-label="Next month">${I.right}</button></div>`;
 
@@ -226,10 +228,10 @@ function viewListings(){
       <div class="tile"><span class="l">Time to sell</span><span class="v">${avgD!=null?Math.round(avgD)+" day"+(Math.round(avgD)===1?"":"s"):"–"}</span><span class="s">average${dts.length<sold.length?" ("+dts.length+" with dates)":""}</span></div>
       <div class="tile"><span class="l">Price drop or relist</span><span class="v">${helped.length} of ${sold.length}</span><span class="s">${inq.length?"avg "+Math.round(inq.reduce((a,b)=>a+b,0)/inq.length)+" inquiries per sale":"inquiries tracked from now on"}</span></div>
     </div>
-    <section class="card" style="padding:10px 14px 4px">
+    ${DESK?deskListed(listed):`    <section class="card" style="padding:10px 14px 4px">
       <div class="between" style="padding-bottom:4px"><h2>Listed now · ${listed.length}</h2><span class="small muted b">days · drops · inquiries</span></div>
       ${listed.map(({p,li})=>`<button type="button" class="lrow" data-act="open" data-id="${p.id}" data-sub="listing"><span class="grow" style="display:flex;flex-direction:column;min-width:0"><span class="b">#${esc(p.no)} ${esc(p.name)}</span><span class="small" style="color:${li.start?"var(--muted)":"var(--warm)"}">${li.now!=null?money0(li.now):""}${li.drops&&li.firstPrice!=null&&li.firstPrice!==li.now?" · down from "+money0(li.firstPrice):""}${li.start?"":" · add the date you listed it"}</span></span><span class="b small" style="white-space:nowrap">${li.days!=null?li.days+"d":"–"} · ${li.drops} · ${li.inq!=null?li.inq:"–"}</span>${I.chev}</button>`).join("")||'<p class="small muted" style="margin:4px 0 10px">Nothing listed right now.</p>'}
-    </section>
+    </section>`}
     <section class="card" style="padding:10px 14px 4px">
       <div class="between" style="padding-bottom:4px"><h2>Sold</h2><span class="small muted b">sold of asking</span></div>
       ${(VIEW.soldAll?recent:recent.slice(0,6)).map(p=>`<button type="button" class="lrow" data-act="open" data-id="${p.id}" data-sub="listing"><span class="grow" style="display:flex;flex-direction:column;min-width:0"><span class="b">#${esc(p.no)} ${esc(p.name)}</span><span class="small muted">${p.soldOn?fmtShort(p.soldOn)+" · ":""}${money0(p.sold)}${p.list?" of "+money0(p.list):""}${daysToSell(p)!=null?" · "+(daysToSell(p)<1?"under a day":Math.round(daysToSell(p))+" days"):""}</span></span><span class="b small">${p.list&&p.sold!=null?pct(p.sold/p.list):""}</span>${I.chev}</button>`).join("")||'<p class="small muted" style="margin:4px 0 10px">No sales in this period.</p>'}
@@ -257,7 +259,7 @@ function viewSupplies(){
     <div class="row" style="gap:8px"><label class="row grow" style="gap:8px;height:44px;padding:0 14px;border-radius:22px;background:var(--card);border:1px solid var(--line2);color:var(--muted)">${I.search}<input type="search" data-act="q" value="${esc(VIEW.q)}" placeholder="Search supplies" aria-label="Search supplies" style="flex:1;min-width:0;border:0;outline:none;background:none;font-size:14px;font-weight:600;color:var(--ink)"></label>
     <button type="button" class="icon-btn" data-act="scan" aria-label="Scan a barcode">${I.barcode}</button></div>
     ${low.length?`<div class="warnbox">${I.warn}<span>${low.length} running low: ${low.map(s=>esc(s.name)).join(", ")}</span></div>`:""}
-    ${cats.map(c=>`<section class="card" style="display:flex;flex-direction:column;gap:4px;padding:10px 14px"><h2 style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">${esc(c)}</h2>${list.filter(s=>(s.category||"Other")===c).sort((a,b)=>a.name.localeCompare(b.name)).map(row).join("")}</section>`).join("")}
+    ${DESK?deskSupplies(list):cats.map(c=>`<section class="card" style="display:flex;flex-direction:column;gap:4px;padding:10px 14px"><h2 style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">${esc(c)}</h2>${list.filter(s=>(s.category||"Other")===c).sort((a,b)=>a.name.localeCompare(b.name)).map(row).join("")}</section>`).join("")}
     ${!S.supplies.length?`<div class="empty">No supplies on the shelf yet.<br>Scan a barcode, scan a receipt, or add one by hand.</div>`:!list.length?'<div class="empty">No supplies match.</div>':""}
     <div class="grid2"><button type="button" class="btn out" data-act="newSupply">Add supply</button><button type="button" class="btn" data-act="scan">${I.barcode.replace("<svg",'<svg width="22" height="22"')}Scan barcode</button></div>
   </main>`;
@@ -286,8 +288,8 @@ function moneyExpenses(){
       <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span class="b" style="font-size:20px">${money0(total)}</span><span class="small muted">spent</span></div></div>
     <div class="grow" style="display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:700">${order.map(c=>`<div class="row" style="gap:8px"><span style="width:10px;height:10px;border-radius:3px;background:${CATCOL[c]||"#8A8299"};flex-shrink:0"></span><span class="grow">${esc(c)}</span><span>${money0(cats[c])}</span></div>`).join("")||'<span class="muted">Nothing logged this month.</span>'}</div>
   </section>
-  <h2 class="h2" style="margin:4px 4px 0">This month</h2>
-  <section class="card" style="padding:4px 14px">${ex.map(e=>`<button type="button" class="lrow" data-act="editExpense" data-id="${e.id}"><span class="grow" style="display:flex;flex-direction:column;min-width:0"><span class="b">${esc(e.item||e.store||"Expense")}</span><span class="small muted">${e.date?fmtShort(e.date)+" · ":""}${esc([e.store,e.category,e.project?"#"+e.project:""].filter(Boolean).join(" · "))}${e.receipt?" · receipt":""}</span></span><span class="b">${money(e.amount||0)}</span></button>`).join("")||'<p class="small muted">No expenses this month.</p>'}</section>
+  ${DESK?deskExpenses(ex):`  <h2 class="h2" style="margin:4px 4px 0">This month</h2>
+  <section class="card" style="padding:4px 14px">${ex.map(e=>`<button type="button" class="lrow" data-act="editExpense" data-id="${e.id}"><span class="grow" style="display:flex;flex-direction:column;min-width:0"><span class="b">${esc(e.item||e.store||"Expense")}</span><span class="small muted">${e.date?fmtShort(e.date)+" · ":""}${esc([e.store,e.category,e.project?"#"+e.project:""].filter(Boolean).join(" · "))}${e.receipt?" · receipt":""}</span></span><span class="b">${money(e.amount||0)}</span></button>`).join("")||'<p class="small muted">No expenses this month.</p>'}</section>`}
   <div style="height:70px"></div>`;
 }
 function moneyPnl(){
