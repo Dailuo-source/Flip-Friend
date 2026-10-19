@@ -33,7 +33,7 @@ function deskView(){
   if(VIEW.tab==="projects")return deskProjects(p);
   if(p)return`<div class="dk-solo">${viewProject(p)}</div>`;
   if(VIEW.tab==="money"&&D.batch)return deskBatch();
-  return({home:viewHome,listings:viewListings,supplies:viewSupplies,money:viewMoney}[VIEW.tab]||viewHome)();
+  return({home:deskHome,listings:viewListings,supplies:viewSupplies,money:viewMoney}[VIEW.tab]||viewHome)();
 }
 
 /* ---------- projects: table + panel, or edit mode ---------- */
@@ -275,3 +275,50 @@ document.addEventListener("dragleave",e=>{const z=$("#dkDrop");if(z&&!z.contains
 document.addEventListener("drop",e=>{if(D.batch&&e.target.closest&&e.target.closest("#dkBatch")){e.preventDefault();batchFiles(e.dataTransfer.files);}});
 document.addEventListener("paste",e=>{if(!D.batch||!e.target.closest||!e.target.closest("#dkBatch"))return;const txt=(e.clipboardData||window.clipboardData).getData("text");
   if(txt&&(/\t/.test(txt)||/\n\s*\S/.test(txt.trim()))){e.preventDefault();batchPaste(txt);}});
+
+/* ---------- desktop home ---------- */
+function deskHome(){
+  const m=VIEW.month,y=+m.slice(0,4),mo=+m.slice(5,7),g=goalRow(y,mo),prof=monthProfit(m),sales=monthSales(m),soldN=soldIn(m).length;
+  const ytd=S.projects.filter(p=>p.status==="Sold"&&p.soldOn&&p.soldOn.slice(0,4)===String(y)&&monthKey(p.soldOn)<=m);
+  const ytdP=r2(ytd.reduce((s,p)=>s+(profitOf(p)||0),0)),ytdS=ytd.reduce((s,p)=>s+(p.sold||0),0);
+  const open=S.projects.filter(isOpen),listed=open.filter(p=>p.status==="Listed");
+  const dts=ytd.map(daysToSell).filter(d=>d!=null),avgD=dts.length?Math.round(dts.reduce((a,b)=>a+b,0)/dts.length):null;
+  const gp=g&&g.goal?Math.max(0,Math.min(1,prof/g.goal)):null;
+  /* 12-month chart with goal marks */
+  const months=[];for(let i=1;i<=12;i++){const k=y+"-"+pad(i),gr=goalRow(y,i);months.push({k,i,v:k<=today().slice(0,7)?monthProfit(k):null,g:gr&&gr.goal!=null?gr.goal:null});}
+  const mx=Math.max(1,...months.map(x=>Math.max(x.v||0,x.g||0)));
+  const chart=`<div class="dh-chart" role="img" aria-label="Net profit by month in ${y}, with monthly goals">${months.map(x=>{const h=x.v>0?Math.max(4,Math.round(x.v/mx*170)):3,cur=x.k===m;
+    return`<div class="dh-col"><span class="small ${cur?"b":"muted"}">${x.v?money0(x.v).replace(/,000$/,"k"):""}</span><div class="dh-bar-wrap">${x.g!=null?`<i class="dh-goal" style="bottom:${Math.round(x.g/mx*170)}px" title="Goal ${money0(x.g)}"></i>`:""}<div class="dh-bar" style="height:${h}px;background:${x.v==null?"var(--line)":cur?"var(--pink)":x.v>0?"var(--bar)":"var(--line2)"}"></div></div><span class="small ${cur?"b":"muted"}">${MONTHS[x.i-1].slice(0,3)}</span></div>`;}).join("")}</div>`;
+  /* needs a look */
+  const look=[];
+  listed.forEach(p=>{const li=listInfo(p);
+    if(!li.start)look.push({c:"warm",p,t:pTitle(p),s:"Listed, but the listing date is missing · add it"});
+    else if(li.days>=21&&!li.inq)look.push({c:"warm",p,t:pTitle(p),s:"Listed "+li.days+" days, no inquiries · try a price drop"});
+    else if(li.days>=7&&(!li.checked||daysBetween(li.checked,today())>=7))look.push({c:"blue",p,t:pTitle(p),s:"No check-in for a week · update views and inquiries"});});
+  S.supplies.filter(isLow).forEach(s=>look.push({c:"warm",sup:s,t:s.name,s:r2(s.onHand||0)+" "+(s.unit||"")+" left · low at "+s.lowAt+" "+(s.unit||"")}));
+  open.filter(p=>p.status==="Not started").forEach(p=>look.push({c:"blue",p,t:pTitle(p),s:"Bought"+(p.paid!=null?" for "+money0(p.paid):"")+", not started yet"}));
+  const lookHTML=look.slice(0,6).map(x=>`<button type="button" class="dh-look" ${x.p?`data-act="dkOpenP" data-id="${x.p.id}"`:`data-act="supply" data-id="${x.sup.id}"`}><span class="dot" style="background:var(--${x.c})"></span><span class="grow" style="display:flex;flex-direction:column"><span class="b">${esc(x.t)}</span><span class="small muted">${esc(x.s)}</span></span>${I.chev||""}</button>`).join("")
+    +(look.length>6?`<span class="small muted">and ${look.length-6} more</span>`:"");
+  /* on the bench */
+  const bench=open.filter(p=>p.status==="In progress").map(p=>{const st=stepState(p),i=st.findIndex(s=>s.state==="cur"),n=st.length-1;return{p,i,n,name:i>=0?st[i].name:"",pct:i>0?Math.round(i/n*100):0};}).sort((a,b)=>b.pct-a.pct);
+  const benchHTML=bench.map(b=>`<button type="button" class="dh-bench" data-act="dkOpenP" data-id="${b.p.id}"><span class="b">${esc(pTitle(b.p))}</span><span class="small muted">${b.p.started?"Started "+fmtShort(b.p.started)+" · ":""}${hrs(hoursOf(b.p))} so far</span><span class="track"><i style="width:${b.pct}%"></i></span><span class="small b" style="color:var(--mint)">${b.i>0?esc(b.name)+" · step "+b.i+" of "+b.n:b.i===0?"Pick-up":"Not logged yet"}</span>${TIMER&&TIMER.pid===b.p.id?'<span class="chip c-mint" style="align-self:flex-start">Timer running</span>':""}</button>`).join("");
+  return`<header class="top"><div class="grow"><h1>Shop snapshot</h1><div class="sub">${esc(monthName(m))}</div></div>${monthNav()}
+    <button type="button" class="btn sm ghost" data-act="receipt">${I.camera}Add receipt</button><button type="button" class="btn sm" data-act="newProject">${I.plus}Add project</button>${syncBtn}</header>
+  <main>
+    <div class="dh-tiles">
+      <section class="hero dh-hero" aria-label="Net profit this month"><span class="small b">Net profit · ${esc(MONTHS[mo-1])}</span><span class="big">${money(prof)}</span><span class="small">${soldN} piece${soldN===1?"":"s"} sold · ${money0(sales)} in sales</span>
+        ${gp!=null?`<div class="meter" style="margin-top:8px"><i style="width:${Math.round(gp*100)}%"></i></div><span class="small b">${Math.round(prof/g.goal*100)}% of your ${money0(g.goal)} monthly goal</span>`:`<button type="button" class="link" style="color:var(--pink2);align-self:flex-start" data-act="goals">Set a goal for this month</button>`}</section>
+      <div class="tile"><span class="l">Sold this month</span><span class="v">${soldN} piece${soldN===1?"":"s"}</span><span class="s">${g&&g.min!=null?"forecast "+g.min+(g.max!=null&&g.max!==g.min?"–"+g.max:""):"no forecast set"}</span></div>
+      <div class="tile"><span class="l">Net profit ${y}</span><span class="v">${money0(ytdP)}</span><span class="s">January to ${esc(MONTHS[mo-1])}</span></div>
+      <div class="tile"><span class="l">Profit margin</span><span class="v">${ytdS?pct(ytdP/ytdS):"–"}</span><span class="s">${y} so far</span></div>
+      <div class="tile"><span class="l">Average days to sell</span><span class="v">${avgD!=null?avgD+" day"+(avgD===1?"":"s"):"–"}</span><span class="s">${y} so far</span></div>
+    </div>
+    <div class="dh-row">
+      <section class="card dh-card dh-grow"><div class="between"><h2>Net profit by month, ${y}</h2>${months.some(x=>x.g!=null)?'<span class="small muted row" style="gap:6px"><i class="dh-key"></i>Goal</span>':`<button type="button" class="link" data-act="goals">Set goals</button>`}</div>${chart}</section>
+      <section class="card dh-card dh-side"><h2>Needs a look</h2>${lookHTML||'<p class="small muted" style="margin:0">All clear. Nothing waiting on you.</p>'}</section>
+    </div>
+    <section class="card dh-card"><div class="between"><h2>On the bench · ${bench.length}</h2><button type="button" class="link" data-act="gotab" data-v="projects" data-f="Active">All projects</button></div>
+      ${benchHTML?`<div class="dh-benches">${benchHTML}</div>`:'<p class="small muted" style="margin:0">Nothing in progress. Start a project from Projects.</p>'}</section>
+  </main>`;
+}
+document.addEventListener("click",e=>{const b=e.target.closest('[data-act="dkOpenP"]');if(!b)return;VIEW.tab="projects";LS.set("tab","projects");D.edit=false;openProject(b.dataset.id);});
