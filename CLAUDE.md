@@ -23,7 +23,7 @@ Business app for **Refinished by Cecilia**, Gary and Cecilia's furniture flippin
 
 ## Data model (tabs, matched by header name)
 
-- **Projects**: No, Name, Status (Not started / In progress / Listed / Sold / Disposed), Started, Price paid, List price, Sold price, Delivery fee, Sold on, Profit, Time to sell, Days worked, Notes, Picture (Drive file id), Inspiration notes, Updated, ID, Sold through. New project numbers are assigned by the server as highest number + 1 (old tracker had two #16s; the second is **16B**). Imported profits are copied exactly as recorded (some old rows leave the delivery fee out); the app only recalculates profit when a sale or cost is edited. #37's profit was corrected to $557.07 (the tracker had used the listing price).
+- **Projects**: No, Name, Status (Not started / In progress / Listed / Pending / Sold / Disposed; Pending = buyer committed, not yet paid/picked up — counts as open and shows with listings), Started, Price paid, List price, Sold price, Delivery fee, Sold on, Profit, Time to sell, Days worked, Notes, Picture (Drive file id), Inspiration notes, Updated, ID, Sold through. New project numbers are assigned by the server as highest number + 1 (old tracker had two #16s; the second is **16B**). Imported profits are copied exactly as recorded (some old rows leave the delivery fee out); the app only recalculates profit when a sale or cost is edited. #37's profit was corrected to $557.07 (the tracker had used the listing price).
 - **Time log**: Project, Step, Label, Date, Hours, Notes, ID. Steps come from Settings (Pick-up, Prep, Prime, Paint, Poly, Finish & list). A step shows as done once a later step has time, or the piece is listed/sold. The timer lives in the phone's localStorage (`ff.timer`).
 - **Listings**: Project, Date, Event (Listed / Price drop / Relisted / Check-in / Sold), Price, Platform, Views, Saves, Inquiries, Notes, ID. Interest numbers are cumulative: the latest non-blank value of each wins.
 - **Supply use**: Project, Date, Supply, Amount, Unit, Cost, Shared with, Notes, ID. Reusable supplies (sandpaper etc.) split the cost across the projects picked.
@@ -43,7 +43,7 @@ Business app for **Refinished by Cecilia**, Gary and Cecilia's furniture flippin
 
 ## Changing things
 
-- App files: edit `src/`, run `sh build.sh`, bump `CACHE` in `sw.js` (currently `flip-friend-v4`), commit and push to `main`. Cloudflare deploys in about a minute.
+- App files: edit `src/`, run `sh build.sh`, bump `CACHE` in `sw.js` (currently `flip-friend-v5`), commit and push to `main`. Cloudflare deploys in about a minute.
 - Code.gs: paste into Apps Script (opened from the sheet **in the business account**) and redeploy (Deploy → Manage deployments → pencil → New version).
 - Commits use author `Claude <noreply@anthropic.com>`.
 - Testing: a Node mock of SpreadsheetApp/DriveApp/UrlFetchApp running Code.gs plus Playwright (route `script.google.com` to `api()`) covers the full flow.
@@ -66,6 +66,7 @@ API: op-batched like Pantry Pal, plus single calls through `runCall_` for upload
 - Open: (none recorded)
 
 ## Changelog (latest first, keep about 10 lines)
+- 2026-10-19: Pending (sale pending) status: `setPending`, Listing tab box on phone, Pending / Back on the market buttons on desktop Listings
 - 2026-10-19: Desktop P&L chart sized to the screen instead of scaling up; two-column P&L layout
 - 2026-10-19: Desktop Home (buttons, Needs a look, On the bench), full-width screens on large monitors
 - 2026-10-18: Desktop layout: sidebar, tables, project panel, bulk edit, batch expenses, shortcuts

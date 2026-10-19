@@ -17,7 +17,7 @@ document.addEventListener("focusout",()=>{setTimeout(()=>{if(heldRender&&!holdRe
 
 /* ---------- sidebar ---------- */
 function deskNav(){
-  const open=S.projects.filter(isOpen).length,listed=S.projects.filter(p=>p.status==="Listed").length,low=S.supplies.filter(isLow).length;
+  const open=S.projects.filter(isOpen).length,listed=S.projects.filter(p=>p.status==="Listed"||p.status==="Pending").length,low=S.supplies.filter(isLow).length;
   const badge={projects:open?`<span class="dn-n">${open}</span>`:"",listings:listed?`<span class="dn-n">${listed}</span>`:"",supplies:low?`<span class="chip c-warm dn-n">${low} low</span>`:""};
   const tp=TIMER&&pByNo(TIMER.project);
   return`<div class="dn-brand">${LOGO}<div><b>Flip Friend</b><span>Refinished by Cecilia</span></div></div>
@@ -42,7 +42,7 @@ function deskProjects(p){
   const q=VIEW.q.trim().toLowerCase();
   let shown=sortProjects(all.filter(PF[VIEW.pf]||PF.All));
   if(q)shown=shown.filter(x=>("#"+x.no+" "+x.name+" "+(x.notes||"")).toLowerCase().includes(q));
-  const head=`<header class="top"><div class="grow"><h1>Projects</h1><div class="sub">${c("In progress")} in progress · ${c("Not started")} not started · ${c("Listed")} listed · ${c("Sold")} sold</div></div>
+  const head=`<header class="top"><div class="grow"><h1>Projects</h1><div class="sub">${c("In progress")} in progress · ${c("Not started")} not started · ${c("Listed")} listed${c("Pending")?" · "+c("Pending")+" pending":""} · ${c("Sold")} sold</div></div>
     <label class="dk-search">${I.search}<input type="search" data-act="q" value="${esc(VIEW.q)}" placeholder="Search projects" aria-label="Search projects"></label>
     <div class="seg dk-seg" role="group" aria-label="Mode"><button type="button" class="${D.edit?"":"on"}" data-act="dkMode" data-v="view">View</button><button type="button" class="${D.edit?"on":""}" data-act="dkMode" data-v="edit">Edit</button></div>
     <button type="button" class="btn sm" data-act="newProject">${I.plus}Add project</button>${syncBtn}</header>`;
@@ -56,7 +56,7 @@ function deskProjects(p){
 function viewTable(list,sel){
   if(!list.length)return'<div class="empty">Nothing here yet.</div>';
   return`<div class="dk-table"><table><thead><tr><th scope="col">No</th><th scope="col">Project</th><th scope="col">Status</th><th scope="col" class="r">Paid</th><th scope="col" class="r">Listed / sold</th><th scope="col" class="r">Hours</th><th scope="col" class="r">Profit</th></tr></thead><tbody>
-  ${list.map(x=>{const pr=profitOf(x),li=x.status==="Listed"?listInfo(x):null,price=x.status==="Sold"?x.sold:li?li.now:x.list,h=hoursOf(x);
+  ${list.map(x=>{const pr=profitOf(x),li=x.status==="Listed"||x.status==="Pending"?listInfo(x):null,price=x.status==="Sold"?x.sold:li?li.now:x.list,h=hoursOf(x);
     return`<tr class="click${sel&&sel.id===x.id?" sel":""}" data-act="open" data-id="${x.id}"><td class="muted b">#${esc(x.no)}</td><td><button type="button" class="dk-name" data-act="open" data-id="${x.id}">${esc(x.name)}</button></td><td>${statusChip(x)}</td><td class="r">${x.paid!=null?money(x.paid):"–"}</td><td class="r">${price!=null?money0(price):"–"}</td><td class="r muted">${h?hrs(h):"–"}</td><td class="r b ${pr==null?"muted":pr<0?"neg":"pos"}">${pr==null?"–":(pr<0?"":"+")+money(pr)}</td></tr>`;}).join("")}
   </tbody></table></div>`;
 }
@@ -124,11 +124,11 @@ function deskListed(listed){
   const bar=(v,m,col,l)=>`<div class="ib"><span>${l} ${v==null?"–":v}</span><i><b style="width:${v&&m?Math.max(4,Math.round(v/m*100)):0}%;background:${col}"></b></i></div>`;
   return`<section class="dk-table"><div class="dk-cap"><h2 class="h2" style="font-size:16px">Listed now · ${listed.length}</h2><span class="small muted">Interest is from your latest check-in. The longest bar is your top piece listed now.</span></div><table>
   <thead><tr><th scope="col">Project</th><th scope="col">Platform</th><th scope="col" class="r">Days</th><th scope="col" class="r">Price</th><th scope="col" style="width:230px">Interest</th><th scope="col" class="r">Quick actions</th></tr></thead><tbody>
-  ${listed.map(({p,li})=>`<tr><td><button type="button" class="dk-name" data-act="open" data-id="${p.id}" data-sub="listing">#${esc(p.no)} ${esc(p.name)}</button><div class="small muted">${p.paid!=null?"Paid "+money0(p.paid):""}${hoursOf(p)?" · "+hrs(hoursOf(p)):""}${li.checked?" · checked "+fmtShort(li.checked):""}</div></td>
+  ${listed.map(({p,li})=>`<tr><td><button type="button" class="dk-name" data-act="open" data-id="${p.id}" data-sub="listing">#${esc(p.no)} ${esc(p.name)}</button>${p.status==="Pending"?' <span class="chip c-pink">Sale pending</span>':""}<div class="small muted">${p.paid!=null?"Paid "+money0(p.paid):""}${hoursOf(p)?" · "+hrs(hoursOf(p)):""}${li.checked?" · checked "+fmtShort(li.checked):""}</div></td>
     <td class="b">${esc(li.platform||"–")}</td><td class="r b" style="${li.days!=null&&li.days>=21?"color:var(--warm)":""}">${li.days!=null?li.days+" d":"–"}</td>
     <td class="r"><div class="b">${li.now!=null?money0(li.now):"–"}</div><div class="small muted">${li.drops&&li.firstPrice!=null&&li.firstPrice!==li.now?"was "+money0(li.firstPrice)+" · ":""}${li.drops?li.drops+" drop"+(li.drops>1?"s":""):"no drops"}</div></td>
     <td>${bar(li.views,mV,"var(--blue)","Views")}${bar(li.saves,mS,"var(--lav)","Saves")}${bar(li.inq,mI,"var(--pink)","Asks")}</td>
-    <td class="r"><div class="dk-acts"><button type="button" class="btn sm ghost" data-act="dkInq" data-id="${p.id}">+1 inquiry</button><button type="button" class="btn sm ghost" data-act="dkLev" data-v="Check-in" data-id="${p.id}">Check-in</button><button type="button" class="btn sm ghost" data-act="dkLev" data-v="Price drop" data-id="${p.id}">Price drop</button><button type="button" class="btn sm dk-mint" data-act="dkSold" data-id="${p.id}">Mark sold</button></div></td></tr>`).join("")}
+    <td class="r"><div class="dk-acts">${p.status==="Pending"?`<button type="button" class="btn sm ghost" data-act="dkPend" data-v="0" data-id="${p.id}">Back on the market</button>`:`<button type="button" class="btn sm ghost" data-act="dkPend" data-v="1" data-id="${p.id}">Pending</button><button type="button" class="btn sm ghost" data-act="dkInq" data-id="${p.id}">+1 inquiry</button><button type="button" class="btn sm ghost" data-act="dkLev" data-v="Check-in" data-id="${p.id}">Check-in</button><button type="button" class="btn sm ghost" data-act="dkLev" data-v="Price drop" data-id="${p.id}">Price drop</button>`}<button type="button" class="btn sm dk-mint" data-act="dkSold" data-id="${p.id}">Mark sold</button></div></td></tr>`).join("")}
   </tbody></table></section>`;
 }
 
@@ -242,6 +242,7 @@ document.addEventListener("click",e=>{
     case"dkInq":if(p)plusInquiry(p);break;
     case"dkLev":if(p)sheetListEvent(p,b.dataset.v);break;
     case"dkSold":if(p)sheetMarkSold(p);break;
+    case"dkPend":if(p)setPending(p,b.dataset.v==="1");break;
     case"dkBatch":D.batch={rows:[brow()]};render();window.scrollTo(0,0);break;
     case"dkBatchClose":if(D.batch.rows.some(r=>r.item||r.amount)&&!b.dataset.armed){b.dataset.armed="1";toast("Rows not saved. Press back again to leave them.");return;}D.batch=null;render();break;
     case"dkFiles":pickFiles("#fileDocs").then(batchFiles);break;

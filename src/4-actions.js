@@ -139,6 +139,7 @@ function sheetListEvent(p,type,ev){
     del(){store.del("listings",ev.id);closeSheet();}});
 }
 function plusInquiry(p){const li=listInfo(p);store.add("listings",{project:String(p.no),event:"Check-in",date:today(),inquiries:(li.inq||0)+1});toast("Inquiry added · "+((li.inq||0)+1)+" so far");}
+function setPending(p,on){store.update("projects",p.id,{status:on?"Pending":"Listed"});toast(on?"Marked as sale pending":"Back on the market");}
 function sheetMarkSold(p){
   const li=listInfo(p),editing=p.status==="Sold";
   const first=li.firstPrice??li.now;
@@ -431,6 +432,7 @@ document.addEventListener("click",async e=>{
     case"editEvent":if(p){const x=S.listings.find(l=>l.id===b.dataset.id);if(x)sheetListEvent(p,x.event,x);}break;
     case"plusInquiry":if(p)plusInquiry(p);break;
     case"markSold":if(p)sheetMarkSold(p);break;
+    case"setPending":if(p)setPending(p,b.dataset.v==="1");break;
     case"undoSale":if(p)undoSale(p);break;
     case"addInspo":if(p)addInspo(p);break;
     case"inspoMenu":{const x=S.inspiration.find(i=>i.id===b.dataset.id);if(x)sheetInspo(x);break;}

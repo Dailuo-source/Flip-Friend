@@ -96,7 +96,7 @@ function normalize(st){
   out.supplies.forEach(s=>{s.reusable=s.reusable===true||/^(true|yes|1)$/i.test(String(s.reusable));});
   return out;
 }
-function normStatus(s){s=String(s||"").trim().toLowerCase();if(/^sold|^complete/.test(s))return"Sold";if(/^list|in stock/.test(s))return"Listed";if(/^dispos|^discard/.test(s))return"Disposed";if(/progress/.test(s))return"In progress";return"Not started";}
+function normStatus(s){s=String(s||"").trim().toLowerCase();if(/pending/.test(s))return"Pending";if(/^sold|^complete/.test(s))return"Sold";if(/^list|in stock/.test(s))return"Listed";if(/^dispos|^discard/.test(s))return"Disposed";if(/progress/.test(s))return"In progress";return"Not started";}
 async function flush(){
   if(auth!=="ok"||!API||!KEY)return;
   if(inflight){clearTimeout(flushT);flushT=setTimeout(flush,400);return;}
@@ -139,7 +139,7 @@ const UNITS=()=>{const l=splitList(setting("Units"));return l.length?l:["each","
 const SUPCATS=()=>{const l=splitList(setting("Supply categories"));return l.length?l:["Strip & sand","Paint & finish","Hardware","Upholstery","Other"];};
 const EXPCATS=()=>{const l=splitList(setting("Expense categories"));return l.length?l:["Pieces bought","Supplies","Hardware","Gas & fees","Other"];};
 const PLATFORMS=()=>{const l=splitList(setting("Platforms"));return l.length?l:["Marketplace","Kijiji","Instagram","In person","Other"];};
-const STATUSES=["Not started","In progress","Listed","Sold","Disposed"];
+const STATUSES=["Not started","In progress","Listed","Pending","Sold","Disposed"];
 
 /* ---------- projects ---------- */
 const same=(a,b)=>String(a==null?"":a).trim()===String(b==null?"":b).trim();
@@ -152,7 +152,7 @@ const usesOf=p=>S.supplyuse.filter(u=>same(u.project,p.no));
 const costsOf=p=>r2(usesOf(p).reduce((s,u)=>s+(u.cost||0),0));
 const timesOf=p=>S.timelog.filter(t=>same(t.project,p.no));
 const hoursOf=p=>r2(timesOf(p).reduce((s,t)=>s+(t.hours||0),0));
-const isOpen=p=>p.status==="Not started"||p.status==="In progress"||p.status==="Listed";
+const isOpen=p=>p.status==="Not started"||p.status==="In progress"||p.status==="Listed"||p.status==="Pending";
 function calcProfit(p,sold,fee){return r2((+sold||0)+(+fee||0)-(p.paid||0)-costsOf(p));}
 function profitOf(p){if(p.status==="Sold")return p.profit!=null?p.profit:calcProfit(p,p.sold,p.fee);if(p.status==="Disposed")return p.profit!=null?p.profit:-r2((p.paid||0)+costsOf(p));return null;}
 function eventsOf(p){return S.listings.filter(l=>same(l.project,p.no)).map((l,i)=>Object.assign({_i:i},l)).sort((a,b)=>(a.date||"0").localeCompare(b.date||"0")||a._i-b._i);}
@@ -182,7 +182,7 @@ function stepState(p){
   const steps=STEPS(),t=timesOf(p);
   const by=steps.map(s=>t.filter(e=>eqi(e.step,s)));
   let last=-1;by.forEach((a,i)=>{if(a.length)last=i;});
-  const finished=p.status==="Listed"||p.status==="Sold"||p.status==="Disposed";
+  const finished=p.status==="Listed"||p.status==="Pending"||p.status==="Sold"||p.status==="Disposed";
   return steps.map((s,i)=>({name:s,entries:by[i],hours:r2(by[i].reduce((x,e)=>x+(e.hours||0),0)),
     state:finished?(by[i].length||i<=last?"done":"todo"):(i<last?"done":i===last?"cur":"todo")}));
 }
@@ -263,10 +263,11 @@ function statusChip(p){
   if(p.status==="Sold")return'<span class="chip c-mint">Sold</span>';
   if(p.status==="Disposed")return'<span class="chip c-grey">Disposed</span>';
   if(p.status==="Listed"){const li=listInfo(p);return`<span class="chip c-blue">Listed${li.days!=null?" · "+li.days+" days":""}</span>`;}
+  if(p.status==="Pending")return'<span class="chip c-pink">Sale pending</span>';
   if(p.status==="In progress"){const c=currentStepLabel(p);return`<span class="chip c-warm">${esc(c||"In progress")}</span>`;}
   return'<span class="chip c-lav">Not started</span>';
 }
 function thumbHTML(p,lg){
-  const tone=p.status==="Sold"?"t-mint":p.status==="Listed"?"t-blue":p.status==="In progress"?"t-warm":p.status==="Disposed"?"t-grey":"t-lav";
+  const tone=p.status==="Sold"?"t-mint":p.status==="Listed"||p.status==="Pending"?"t-blue":p.status==="In progress"?"t-warm":p.status==="Disposed"?"t-grey":"t-lav";
   return`<div class="thumb ${lg?"lg ":""}${tone}">${I.dresser}${p.picture?`<img data-img="${esc(p.picture)}" alt="" hidden>`:""}</div>`;
 }

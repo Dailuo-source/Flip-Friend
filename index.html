@@ -369,7 +369,7 @@ function normalize(st){
   out.supplies.forEach(s=>{s.reusable=s.reusable===true||/^(true|yes|1)$/i.test(String(s.reusable));});
   return out;
 }
-function normStatus(s){s=String(s||"").trim().toLowerCase();if(/^sold|^complete/.test(s))return"Sold";if(/^list|in stock/.test(s))return"Listed";if(/^dispos|^discard/.test(s))return"Disposed";if(/progress/.test(s))return"In progress";return"Not started";}
+function normStatus(s){s=String(s||"").trim().toLowerCase();if(/pending/.test(s))return"Pending";if(/^sold|^complete/.test(s))return"Sold";if(/^list|in stock/.test(s))return"Listed";if(/^dispos|^discard/.test(s))return"Disposed";if(/progress/.test(s))return"In progress";return"Not started";}
 async function flush(){
   if(auth!=="ok"||!API||!KEY)return;
   if(inflight){clearTimeout(flushT);flushT=setTimeout(flush,400);return;}
@@ -412,7 +412,7 @@ const UNITS=()=>{const l=splitList(setting("Units"));return l.length?l:["each","
 const SUPCATS=()=>{const l=splitList(setting("Supply categories"));return l.length?l:["Strip & sand","Paint & finish","Hardware","Upholstery","Other"];};
 const EXPCATS=()=>{const l=splitList(setting("Expense categories"));return l.length?l:["Pieces bought","Supplies","Hardware","Gas & fees","Other"];};
 const PLATFORMS=()=>{const l=splitList(setting("Platforms"));return l.length?l:["Marketplace","Kijiji","Instagram","In person","Other"];};
-const STATUSES=["Not started","In progress","Listed","Sold","Disposed"];
+const STATUSES=["Not started","In progress","Listed","Pending","Sold","Disposed"];
 
 /* ---------- projects ---------- */
 const same=(a,b)=>String(a==null?"":a).trim()===String(b==null?"":b).trim();
@@ -425,7 +425,7 @@ const usesOf=p=>S.supplyuse.filter(u=>same(u.project,p.no));
 const costsOf=p=>r2(usesOf(p).reduce((s,u)=>s+(u.cost||0),0));
 const timesOf=p=>S.timelog.filter(t=>same(t.project,p.no));
 const hoursOf=p=>r2(timesOf(p).reduce((s,t)=>s+(t.hours||0),0));
-const isOpen=p=>p.status==="Not started"||p.status==="In progress"||p.status==="Listed";
+const isOpen=p=>p.status==="Not started"||p.status==="In progress"||p.status==="Listed"||p.status==="Pending";
 function calcProfit(p,sold,fee){return r2((+sold||0)+(+fee||0)-(p.paid||0)-costsOf(p));}
 function profitOf(p){if(p.status==="Sold")return p.profit!=null?p.profit:calcProfit(p,p.sold,p.fee);if(p.status==="Disposed")return p.profit!=null?p.profit:-r2((p.paid||0)+costsOf(p));return null;}
 function eventsOf(p){return S.listings.filter(l=>same(l.project,p.no)).map((l,i)=>Object.assign({_i:i},l)).sort((a,b)=>(a.date||"0").localeCompare(b.date||"0")||a._i-b._i);}
@@ -455,7 +455,7 @@ function stepState(p){
   const steps=STEPS(),t=timesOf(p);
   const by=steps.map(s=>t.filter(e=>eqi(e.step,s)));
   let last=-1;by.forEach((a,i)=>{if(a.length)last=i;});
-  const finished=p.status==="Listed"||p.status==="Sold"||p.status==="Disposed";
+  const finished=p.status==="Listed"||p.status==="Pending"||p.status==="Sold"||p.status==="Disposed";
   return steps.map((s,i)=>({name:s,entries:by[i],hours:r2(by[i].reduce((x,e)=>x+(e.hours||0),0)),
     state:finished?(by[i].length||i<=last?"done":"todo"):(i<last?"done":i===last?"cur":"todo")}));
 }
@@ -536,11 +536,12 @@ function statusChip(p){
   if(p.status==="Sold")return'<span class="chip c-mint">Sold</span>';
   if(p.status==="Disposed")return'<span class="chip c-grey">Disposed</span>';
   if(p.status==="Listed"){const li=listInfo(p);return`<span class="chip c-blue">Listed${li.days!=null?" · "+li.days+" days":""}</span>`;}
+  if(p.status==="Pending")return'<span class="chip c-pink">Sale pending</span>';
   if(p.status==="In progress"){const c=currentStepLabel(p);return`<span class="chip c-warm">${esc(c||"In progress")}</span>`;}
   return'<span class="chip c-lav">Not started</span>';
 }
 function thumbHTML(p,lg){
-  const tone=p.status==="Sold"?"t-mint":p.status==="Listed"?"t-blue":p.status==="In progress"?"t-warm":p.status==="Disposed"?"t-grey":"t-lav";
+  const tone=p.status==="Sold"?"t-mint":p.status==="Listed"||p.status==="Pending"?"t-blue":p.status==="In progress"?"t-warm":p.status==="Disposed"?"t-grey":"t-lav";
   return`<div class="thumb ${lg?"lg ":""}${tone}">${I.dresser}${p.picture?`<img data-img="${esc(p.picture)}" alt="" hidden>`:""}</div>`;
 }
 /* =====================================================================
@@ -631,16 +632,16 @@ function sortProjects(a){
 function projectCard(p){
   let meta="",right="";
   if(p.status==="Sold"){meta="Sold "+(p.soldOn?fmtShort(p.soldOn):"")+" · "+money0(p.sold);const pr=profitOf(p);right=`<span class="right ${pr<0?"neg":"pos"}">${pr<0?"":"+"}${money(pr)}</span>`;}
-  else if(p.status==="Listed"){const li=listInfo(p);meta="Listed at "+money0(li.now)+(li.drops?" · "+li.drops+" drop"+(li.drops>1?"s":""):"")+(li.inq?" · "+li.inq+" inquiries":"");}
+  else if(p.status==="Listed"||p.status==="Pending"){const li=listInfo(p);meta=(p.status==="Pending"?"Pending at ":"Listed at ")+money0(li.now)+(li.drops?" · "+li.drops+" drop"+(li.drops>1?"s":""):"")+(li.inq?" · "+li.inq+" inquiries":"");}
   else if(p.status==="In progress"){meta=(p.started?"Started "+fmtShort(p.started)+" · ":"")+hrs(hoursOf(p))+" so far";const st=stepState(p),i=st.findIndex(s=>s.state==="cur");right=`<span class="right">${i>0?Math.round(i/(st.length-1)*100)+"%":""}</span>`;}
   else if(p.status==="Disposed")meta="Disposed";
   else meta="Bought for "+money(p.paid||0);
   return`<button type="button" class="pcard" data-act="open" data-id="${p.id}">${thumbHTML(p)}<div class="pmeta"><span class="pname">#${esc(p.no)} ${esc(p.name)}</span><span class="small muted">${esc(meta)}</span><span>${statusChip(p)}</span></div>${right}</button>`;
 }
 function viewProjects(){
-  const all=S.projects;const counts={ip:all.filter(p=>p.status==="In progress").length,ns:all.filter(p=>p.status==="Not started").length,ls:all.filter(p=>p.status==="Listed").length,sold:all.filter(p=>p.status==="Sold").length};
+  const all=S.projects;const counts={ip:all.filter(p=>p.status==="In progress").length,ns:all.filter(p=>p.status==="Not started").length,ls:all.filter(p=>p.status==="Listed").length,pd:all.filter(p=>p.status==="Pending").length,sold:all.filter(p=>p.status==="Sold").length};
   const shown=sortProjects(all.filter(PF[VIEW.pf]||PF.All));
-  return`<header class="top"><div class="grow"><h1>Projects</h1><div class="sub">${counts.ip} in progress · ${counts.ns} not started · ${counts.ls} listed · ${counts.sold} sold</div></div>${syncBtn}</header>
+  return`<header class="top"><div class="grow"><h1>Projects</h1><div class="sub">${counts.ip} in progress · ${counts.ns} not started · ${counts.ls} listed${counts.pd?" · "+counts.pd+" pending":""} · ${counts.sold} sold</div></div>${syncBtn}</header>
   <main>
     <div class="pills" role="group" aria-label="Show">${Object.keys(PF).map(k=>`<button type="button" class="pill ${VIEW.pf===k?"on":""}" data-act="pf" data-v="${k}" aria-pressed="${VIEW.pf===k}">${k}</button>`).join("")}</div>
     <div class="between"><span class="small muted b">${shown.length} project${shown.length===1?"":"s"}</span>
@@ -720,6 +721,7 @@ function subListing(p){
       <div class="tile sm"><span class="l">Price drops</span><span class="v">${li.drops}</span></div>
       <div class="tile sm"><span class="l">Inquiries</span><span class="v">${li.inq!=null?li.inq:"–"}</span></div>
     </div>
+    ${p.status==="Pending"?`<section class="card" style="display:flex;flex-direction:column;gap:8px;border-color:var(--bar)"><span class="b" style="color:var(--pink2)">Sale pending</span><span class="small muted">Someone has committed to buy it. Mark it sold once it's paid for and picked up.</span><div class="row" style="gap:8px"><button type="button" class="btn sm" style="flex:1" data-act="markSold">Mark sold</button><button type="button" class="btn sm ghost" style="flex:1" data-act="setPending" data-v="0">Back on the market</button></div></section>`:p.status==="Listed"?`<button type="button" class="btn sm ghost" data-act="setPending" data-v="1">Sale pending</button>`:""}
     ${sold?`<section class="okbox" style="display:flex;flex-direction:column;gap:4px"><div class="between"><span class="b">Sold ${p.soldOn?fmtLong(p.soldOn):""}</span><span class="b" style="font-size:20px">${money(profitOf(p))}</span></div>
       <span class="small b">${money0(p.sold)}${p.list?" of "+money0(p.list)+" asking ("+pct(p.sold/p.list)+")":""}${p.soldThrough?" · "+esc(p.soldThrough):""}${p.fee?" · "+money(p.fee)+" delivery":""}</span>
       <div class="row" style="gap:14px"><button type="button" class="link" style="color:var(--mint)" data-act="markSold">Edit sale</button><button type="button" class="link" style="color:var(--mint)" data-act="undoSale">Undo sale</button></div></section>`:""}
@@ -759,7 +761,7 @@ function viewListings(){
   const dts=sold.map(daysToSell).filter(d=>d!=null);
   const avgD=dts.length?dts.reduce((a,b)=>a+b,0)/dts.length:null;
   const helped=sold.filter(needsHelp);
-  const listed=S.projects.filter(p=>p.status==="Listed").map(p=>({p,li:listInfo(p)})).sort((a,b)=>(b.li.days??-1)-(a.li.days??-1));
+  const listed=S.projects.filter(p=>p.status==="Listed"||p.status==="Pending").map(p=>({p,li:listInfo(p)})).sort((a,b)=>(b.li.days??-1)-(a.li.days??-1));
   const recent=sold.slice().sort((a,b)=>String(b.soldOn||"").localeCompare(String(a.soldOn||"")));
   const B=[["Under a day",d=>d<1],["1–7 days",d=>d>=1&&d<=7],["8–14 days",d=>d>7&&d<=14],["15–28 days",d=>d>14&&d<=28],["Over 4 weeks",d=>d>28]];
   const bc=B.map(b=>dts.filter(b[1]).length),bm=Math.max(1,...bc);
@@ -891,7 +893,7 @@ document.addEventListener("focusout",()=>{setTimeout(()=>{if(heldRender&&!holdRe
 
 /* ---------- sidebar ---------- */
 function deskNav(){
-  const open=S.projects.filter(isOpen).length,listed=S.projects.filter(p=>p.status==="Listed").length,low=S.supplies.filter(isLow).length;
+  const open=S.projects.filter(isOpen).length,listed=S.projects.filter(p=>p.status==="Listed"||p.status==="Pending").length,low=S.supplies.filter(isLow).length;
   const badge={projects:open?`<span class="dn-n">${open}</span>`:"",listings:listed?`<span class="dn-n">${listed}</span>`:"",supplies:low?`<span class="chip c-warm dn-n">${low} low</span>`:""};
   const tp=TIMER&&pByNo(TIMER.project);
   return`<div class="dn-brand">${LOGO}<div><b>Flip Friend</b><span>Refinished by Cecilia</span></div></div>
@@ -916,7 +918,7 @@ function deskProjects(p){
   const q=VIEW.q.trim().toLowerCase();
   let shown=sortProjects(all.filter(PF[VIEW.pf]||PF.All));
   if(q)shown=shown.filter(x=>("#"+x.no+" "+x.name+" "+(x.notes||"")).toLowerCase().includes(q));
-  const head=`<header class="top"><div class="grow"><h1>Projects</h1><div class="sub">${c("In progress")} in progress · ${c("Not started")} not started · ${c("Listed")} listed · ${c("Sold")} sold</div></div>
+  const head=`<header class="top"><div class="grow"><h1>Projects</h1><div class="sub">${c("In progress")} in progress · ${c("Not started")} not started · ${c("Listed")} listed${c("Pending")?" · "+c("Pending")+" pending":""} · ${c("Sold")} sold</div></div>
     <label class="dk-search">${I.search}<input type="search" data-act="q" value="${esc(VIEW.q)}" placeholder="Search projects" aria-label="Search projects"></label>
     <div class="seg dk-seg" role="group" aria-label="Mode"><button type="button" class="${D.edit?"":"on"}" data-act="dkMode" data-v="view">View</button><button type="button" class="${D.edit?"on":""}" data-act="dkMode" data-v="edit">Edit</button></div>
     <button type="button" class="btn sm" data-act="newProject">${I.plus}Add project</button>${syncBtn}</header>`;
@@ -930,7 +932,7 @@ function deskProjects(p){
 function viewTable(list,sel){
   if(!list.length)return'<div class="empty">Nothing here yet.</div>';
   return`<div class="dk-table"><table><thead><tr><th scope="col">No</th><th scope="col">Project</th><th scope="col">Status</th><th scope="col" class="r">Paid</th><th scope="col" class="r">Listed / sold</th><th scope="col" class="r">Hours</th><th scope="col" class="r">Profit</th></tr></thead><tbody>
-  ${list.map(x=>{const pr=profitOf(x),li=x.status==="Listed"?listInfo(x):null,price=x.status==="Sold"?x.sold:li?li.now:x.list,h=hoursOf(x);
+  ${list.map(x=>{const pr=profitOf(x),li=x.status==="Listed"||x.status==="Pending"?listInfo(x):null,price=x.status==="Sold"?x.sold:li?li.now:x.list,h=hoursOf(x);
     return`<tr class="click${sel&&sel.id===x.id?" sel":""}" data-act="open" data-id="${x.id}"><td class="muted b">#${esc(x.no)}</td><td><button type="button" class="dk-name" data-act="open" data-id="${x.id}">${esc(x.name)}</button></td><td>${statusChip(x)}</td><td class="r">${x.paid!=null?money(x.paid):"–"}</td><td class="r">${price!=null?money0(price):"–"}</td><td class="r muted">${h?hrs(h):"–"}</td><td class="r b ${pr==null?"muted":pr<0?"neg":"pos"}">${pr==null?"–":(pr<0?"":"+")+money(pr)}</td></tr>`;}).join("")}
   </tbody></table></div>`;
 }
@@ -998,11 +1000,11 @@ function deskListed(listed){
   const bar=(v,m,col,l)=>`<div class="ib"><span>${l} ${v==null?"–":v}</span><i><b style="width:${v&&m?Math.max(4,Math.round(v/m*100)):0}%;background:${col}"></b></i></div>`;
   return`<section class="dk-table"><div class="dk-cap"><h2 class="h2" style="font-size:16px">Listed now · ${listed.length}</h2><span class="small muted">Interest is from your latest check-in. The longest bar is your top piece listed now.</span></div><table>
   <thead><tr><th scope="col">Project</th><th scope="col">Platform</th><th scope="col" class="r">Days</th><th scope="col" class="r">Price</th><th scope="col" style="width:230px">Interest</th><th scope="col" class="r">Quick actions</th></tr></thead><tbody>
-  ${listed.map(({p,li})=>`<tr><td><button type="button" class="dk-name" data-act="open" data-id="${p.id}" data-sub="listing">#${esc(p.no)} ${esc(p.name)}</button><div class="small muted">${p.paid!=null?"Paid "+money0(p.paid):""}${hoursOf(p)?" · "+hrs(hoursOf(p)):""}${li.checked?" · checked "+fmtShort(li.checked):""}</div></td>
+  ${listed.map(({p,li})=>`<tr><td><button type="button" class="dk-name" data-act="open" data-id="${p.id}" data-sub="listing">#${esc(p.no)} ${esc(p.name)}</button>${p.status==="Pending"?' <span class="chip c-pink">Sale pending</span>':""}<div class="small muted">${p.paid!=null?"Paid "+money0(p.paid):""}${hoursOf(p)?" · "+hrs(hoursOf(p)):""}${li.checked?" · checked "+fmtShort(li.checked):""}</div></td>
     <td class="b">${esc(li.platform||"–")}</td><td class="r b" style="${li.days!=null&&li.days>=21?"color:var(--warm)":""}">${li.days!=null?li.days+" d":"–"}</td>
     <td class="r"><div class="b">${li.now!=null?money0(li.now):"–"}</div><div class="small muted">${li.drops&&li.firstPrice!=null&&li.firstPrice!==li.now?"was "+money0(li.firstPrice)+" · ":""}${li.drops?li.drops+" drop"+(li.drops>1?"s":""):"no drops"}</div></td>
     <td>${bar(li.views,mV,"var(--blue)","Views")}${bar(li.saves,mS,"var(--lav)","Saves")}${bar(li.inq,mI,"var(--pink)","Asks")}</td>
-    <td class="r"><div class="dk-acts"><button type="button" class="btn sm ghost" data-act="dkInq" data-id="${p.id}">+1 inquiry</button><button type="button" class="btn sm ghost" data-act="dkLev" data-v="Check-in" data-id="${p.id}">Check-in</button><button type="button" class="btn sm ghost" data-act="dkLev" data-v="Price drop" data-id="${p.id}">Price drop</button><button type="button" class="btn sm dk-mint" data-act="dkSold" data-id="${p.id}">Mark sold</button></div></td></tr>`).join("")}
+    <td class="r"><div class="dk-acts">${p.status==="Pending"?`<button type="button" class="btn sm ghost" data-act="dkPend" data-v="0" data-id="${p.id}">Back on the market</button>`:`<button type="button" class="btn sm ghost" data-act="dkPend" data-v="1" data-id="${p.id}">Pending</button><button type="button" class="btn sm ghost" data-act="dkInq" data-id="${p.id}">+1 inquiry</button><button type="button" class="btn sm ghost" data-act="dkLev" data-v="Check-in" data-id="${p.id}">Check-in</button><button type="button" class="btn sm ghost" data-act="dkLev" data-v="Price drop" data-id="${p.id}">Price drop</button>`}<button type="button" class="btn sm dk-mint" data-act="dkSold" data-id="${p.id}">Mark sold</button></div></td></tr>`).join("")}
   </tbody></table></section>`;
 }
 
@@ -1116,6 +1118,7 @@ document.addEventListener("click",e=>{
     case"dkInq":if(p)plusInquiry(p);break;
     case"dkLev":if(p)sheetListEvent(p,b.dataset.v);break;
     case"dkSold":if(p)sheetMarkSold(p);break;
+    case"dkPend":if(p)setPending(p,b.dataset.v==="1");break;
     case"dkBatch":D.batch={rows:[brow()]};render();window.scrollTo(0,0);break;
     case"dkBatchClose":if(D.batch.rows.some(r=>r.item||r.amount)&&!b.dataset.armed){b.dataset.armed="1";toast("Rows not saved. Press back again to leave them.");return;}D.batch=null;render();break;
     case"dkFiles":pickFiles("#fileDocs").then(batchFiles);break;
@@ -1339,6 +1342,7 @@ function sheetListEvent(p,type,ev){
     del(){store.del("listings",ev.id);closeSheet();}});
 }
 function plusInquiry(p){const li=listInfo(p);store.add("listings",{project:String(p.no),event:"Check-in",date:today(),inquiries:(li.inq||0)+1});toast("Inquiry added · "+((li.inq||0)+1)+" so far");}
+function setPending(p,on){store.update("projects",p.id,{status:on?"Pending":"Listed"});toast(on?"Marked as sale pending":"Back on the market");}
 function sheetMarkSold(p){
   const li=listInfo(p),editing=p.status==="Sold";
   const first=li.firstPrice??li.now;
@@ -1631,6 +1635,7 @@ document.addEventListener("click",async e=>{
     case"editEvent":if(p){const x=S.listings.find(l=>l.id===b.dataset.id);if(x)sheetListEvent(p,x.event,x);}break;
     case"plusInquiry":if(p)plusInquiry(p);break;
     case"markSold":if(p)sheetMarkSold(p);break;
+    case"setPending":if(p)setPending(p,b.dataset.v==="1");break;
     case"undoSale":if(p)undoSale(p);break;
     case"addInspo":if(p)addInspo(p);break;
     case"inspoMenu":{const x=S.inspiration.find(i=>i.id===b.dataset.id);if(x)sheetInspo(x);break;}

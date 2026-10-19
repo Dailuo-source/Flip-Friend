@@ -86,16 +86,16 @@ function sortProjects(a){
 function projectCard(p){
   let meta="",right="";
   if(p.status==="Sold"){meta="Sold "+(p.soldOn?fmtShort(p.soldOn):"")+" · "+money0(p.sold);const pr=profitOf(p);right=`<span class="right ${pr<0?"neg":"pos"}">${pr<0?"":"+"}${money(pr)}</span>`;}
-  else if(p.status==="Listed"){const li=listInfo(p);meta="Listed at "+money0(li.now)+(li.drops?" · "+li.drops+" drop"+(li.drops>1?"s":""):"")+(li.inq?" · "+li.inq+" inquiries":"");}
+  else if(p.status==="Listed"||p.status==="Pending"){const li=listInfo(p);meta=(p.status==="Pending"?"Pending at ":"Listed at ")+money0(li.now)+(li.drops?" · "+li.drops+" drop"+(li.drops>1?"s":""):"")+(li.inq?" · "+li.inq+" inquiries":"");}
   else if(p.status==="In progress"){meta=(p.started?"Started "+fmtShort(p.started)+" · ":"")+hrs(hoursOf(p))+" so far";const st=stepState(p),i=st.findIndex(s=>s.state==="cur");right=`<span class="right">${i>0?Math.round(i/(st.length-1)*100)+"%":""}</span>`;}
   else if(p.status==="Disposed")meta="Disposed";
   else meta="Bought for "+money(p.paid||0);
   return`<button type="button" class="pcard" data-act="open" data-id="${p.id}">${thumbHTML(p)}<div class="pmeta"><span class="pname">#${esc(p.no)} ${esc(p.name)}</span><span class="small muted">${esc(meta)}</span><span>${statusChip(p)}</span></div>${right}</button>`;
 }
 function viewProjects(){
-  const all=S.projects;const counts={ip:all.filter(p=>p.status==="In progress").length,ns:all.filter(p=>p.status==="Not started").length,ls:all.filter(p=>p.status==="Listed").length,sold:all.filter(p=>p.status==="Sold").length};
+  const all=S.projects;const counts={ip:all.filter(p=>p.status==="In progress").length,ns:all.filter(p=>p.status==="Not started").length,ls:all.filter(p=>p.status==="Listed").length,pd:all.filter(p=>p.status==="Pending").length,sold:all.filter(p=>p.status==="Sold").length};
   const shown=sortProjects(all.filter(PF[VIEW.pf]||PF.All));
-  return`<header class="top"><div class="grow"><h1>Projects</h1><div class="sub">${counts.ip} in progress · ${counts.ns} not started · ${counts.ls} listed · ${counts.sold} sold</div></div>${syncBtn}</header>
+  return`<header class="top"><div class="grow"><h1>Projects</h1><div class="sub">${counts.ip} in progress · ${counts.ns} not started · ${counts.ls} listed${counts.pd?" · "+counts.pd+" pending":""} · ${counts.sold} sold</div></div>${syncBtn}</header>
   <main>
     <div class="pills" role="group" aria-label="Show">${Object.keys(PF).map(k=>`<button type="button" class="pill ${VIEW.pf===k?"on":""}" data-act="pf" data-v="${k}" aria-pressed="${VIEW.pf===k}">${k}</button>`).join("")}</div>
     <div class="between"><span class="small muted b">${shown.length} project${shown.length===1?"":"s"}</span>
@@ -175,6 +175,7 @@ function subListing(p){
       <div class="tile sm"><span class="l">Price drops</span><span class="v">${li.drops}</span></div>
       <div class="tile sm"><span class="l">Inquiries</span><span class="v">${li.inq!=null?li.inq:"–"}</span></div>
     </div>
+    ${p.status==="Pending"?`<section class="card" style="display:flex;flex-direction:column;gap:8px;border-color:var(--bar)"><span class="b" style="color:var(--pink2)">Sale pending</span><span class="small muted">Someone has committed to buy it. Mark it sold once it's paid for and picked up.</span><div class="row" style="gap:8px"><button type="button" class="btn sm" style="flex:1" data-act="markSold">Mark sold</button><button type="button" class="btn sm ghost" style="flex:1" data-act="setPending" data-v="0">Back on the market</button></div></section>`:p.status==="Listed"?`<button type="button" class="btn sm ghost" data-act="setPending" data-v="1">Sale pending</button>`:""}
     ${sold?`<section class="okbox" style="display:flex;flex-direction:column;gap:4px"><div class="between"><span class="b">Sold ${p.soldOn?fmtLong(p.soldOn):""}</span><span class="b" style="font-size:20px">${money(profitOf(p))}</span></div>
       <span class="small b">${money0(p.sold)}${p.list?" of "+money0(p.list)+" asking ("+pct(p.sold/p.list)+")":""}${p.soldThrough?" · "+esc(p.soldThrough):""}${p.fee?" · "+money(p.fee)+" delivery":""}</span>
       <div class="row" style="gap:14px"><button type="button" class="link" style="color:var(--mint)" data-act="markSold">Edit sale</button><button type="button" class="link" style="color:var(--mint)" data-act="undoSale">Undo sale</button></div></section>`:""}
@@ -214,7 +215,7 @@ function viewListings(){
   const dts=sold.map(daysToSell).filter(d=>d!=null);
   const avgD=dts.length?dts.reduce((a,b)=>a+b,0)/dts.length:null;
   const helped=sold.filter(needsHelp);
-  const listed=S.projects.filter(p=>p.status==="Listed").map(p=>({p,li:listInfo(p)})).sort((a,b)=>(b.li.days??-1)-(a.li.days??-1));
+  const listed=S.projects.filter(p=>p.status==="Listed"||p.status==="Pending").map(p=>({p,li:listInfo(p)})).sort((a,b)=>(b.li.days??-1)-(a.li.days??-1));
   const recent=sold.slice().sort((a,b)=>String(b.soldOn||"").localeCompare(String(a.soldOn||"")));
   const B=[["Under a day",d=>d<1],["1–7 days",d=>d>=1&&d<=7],["8–14 days",d=>d>7&&d<=14],["15–28 days",d=>d>14&&d<=28],["Over 4 weeks",d=>d>28]];
   const bc=B.map(b=>dts.filter(b[1]).length),bm=Math.max(1,...bc);
