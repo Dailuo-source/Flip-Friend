@@ -322,3 +322,5 @@ function deskHome(){
   </main>`;
 }
 document.addEventListener("click",e=>{const b=e.target.closest('[data-act="dkOpenP"]');if(!b)return;VIEW.tab="projects";LS.set("tab","projects");D.edit=false;openProject(b.dataset.id);});
+
+let rzT=null;window.addEventListener("resize",()=>{if(!DESK||VIEW.tab!=="money"||VIEW.money!=="pnl")return;clearTimeout(rzT);rzT=setTimeout(()=>{if(!holdRender())render();},150);});

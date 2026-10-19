@@ -257,6 +257,9 @@ body.desk .sheet .grab{display:none}
 .dh-benches{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
 .dh-bench{display:flex;flex-direction:column;gap:8px;text-align:left;background:var(--raise);border:0;border-radius:14px;padding:14px;color:var(--ink)}
 @media (min-width:1900px){.dk-side{width:480px}}
+.dk-pnl{display:grid;grid-template-columns:minmax(0,2fr) minmax(340px,1fr);gap:16px;align-items:start}
+.dk-pnl-l{display:flex;flex-direction:column;gap:16px;min-width:0}
+@media (max-width:1300px){.dk-pnl{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:1300px){.dh-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.dh-hero{grid-column:span 2}}
 </style>
 </head>

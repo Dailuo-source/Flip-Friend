@@ -257,6 +257,9 @@ body.desk .sheet .grab{display:none}
 .dh-benches{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
 .dh-bench{display:flex;flex-direction:column;gap:8px;text-align:left;background:var(--raise);border:0;border-radius:14px;padding:14px;color:var(--ink)}
 @media (min-width:1900px){.dk-side{width:480px}}
+.dk-pnl{display:grid;grid-template-columns:minmax(0,2fr) minmax(340px,1fr);gap:16px;align-items:start}
+.dk-pnl-l{display:flex;flex-direction:column;gap:16px;min-width:0}
+@media (max-width:1300px){.dk-pnl{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:1300px){.dh-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.dh-hero{grid-column:span 2}}
 </style>
 </head>
@@ -841,32 +844,33 @@ function moneyPnl(){
   const rows=[];for(let i=1;i<=12;i++){const k=y+"-"+pad(i),gr=goalRow(y,i);rows.push({i,k,p:i<=lastM?monthProfit(k):null,g:gr&&gr.goal!=null?gr.goal:null,n:i<=lastM?soldIn(k).length:null});}
   const shown=rows.filter(r=>r.i<=Math.max(lastM,1));
   const maxV=Math.max(1,...shown.map(r=>Math.max(r.p||0,r.g||0)));const top=Math.ceil(maxV/500)*500;
-  const W=330,H=140,x0=34,x1=328,y0=118,y1=10,bw=(x1-x0)/12;
+  const dw=DESK?Math.max(480,Math.round((innerWidth-236-56-(innerWidth>1300?16:0))*(innerWidth>1300?2/3:1)-44)):0,W=DESK?dw:330,H=DESK?260:140,fs=DESK?12:10,x0=DESK?44:34,x1=W-2,y0=H-24,y1=DESK?16:10,bw=(x1-x0)/12,hb=DESK?Math.min(18,bw*.3):8;
   const yy=v=>y0-(v/top)*(y0-y1);
-  const grid=[0,top/2,top].map(v=>`<line x1="${x0}" y1="${yy(v).toFixed(1)}" x2="${x1}" y2="${yy(v).toFixed(1)}" stroke="#352F42"/><text x="${x0-4}" y="${(yy(v)+3).toFixed(1)}" text-anchor="end" fill="#ABA3BC" font-size="10" font-weight="700">${v>=1000?"$"+(v/1000)+"k":"$"+v}</text>`).join("");
-  const bars=rows.map(r=>{const cx=x0+bw*(r.i-.5);let s="";if(r.p>0)s+=`<rect x="${(cx-8).toFixed(1)}" y="${yy(r.p).toFixed(1)}" width="16" height="${(y0-yy(r.p)).toFixed(1)}" rx="3" fill="#F27BA0"><title>${MONTHS[r.i-1]}: ${money(r.p)}${r.g!=null?" of "+money0(r.g):""}</title></rect>`;
-    if(r.g!=null)s+=`<line x1="${(cx-11.5).toFixed(1)}" y1="${yy(r.g).toFixed(1)}" x2="${(cx+11.5).toFixed(1)}" y2="${yy(r.g).toFixed(1)}" stroke="#EDE8F5" stroke-width="2" stroke-linecap="round"/>`;
-    s+=`<text x="${cx.toFixed(1)}" y="134" text-anchor="middle" fill="${r.i===mo?"#EDE8F5":"#ABA3BC"}" font-size="10" font-weight="700">${MONTHS[r.i-1][0]}</text>`;return s;}).join("");
+  const grid=[0,top/2,top].map(v=>`<line x1="${x0}" y1="${yy(v).toFixed(1)}" x2="${x1}" y2="${yy(v).toFixed(1)}" stroke="#352F42"/><text x="${x0-4}" y="${(yy(v)+3).toFixed(1)}" text-anchor="end" fill="#ABA3BC" font-size="${fs}" font-weight="700">${v>=1000?"$"+(v/1000)+"k":"$"+v}</text>`).join("");
+  const bars=rows.map(r=>{const cx=x0+bw*(r.i-.5);let s="";if(r.p>0)s+=`<rect x="${(cx-hb).toFixed(1)}" y="${yy(r.p).toFixed(1)}" width="${(hb*2).toFixed(1)}" height="${(y0-yy(r.p)).toFixed(1)}" rx="3" fill="#F27BA0"><title>${MONTHS[r.i-1]}: ${money(r.p)}${r.g!=null?" of "+money0(r.g):""}</title></rect>`;
+    if(r.g!=null)s+=`<line x1="${(cx-hb-3.5).toFixed(1)}" y1="${yy(r.g).toFixed(1)}" x2="${(cx+hb+3.5).toFixed(1)}" y2="${yy(r.g).toFixed(1)}" stroke="#EDE8F5" stroke-width="2" stroke-linecap="round"/>`;
+    s+=`<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" fill="${r.i===mo?"#EDE8F5":"#ABA3BC"}" font-size="${fs}" font-weight="700">${MONTHS[r.i-1][0]}</text>`;return s;}).join("");
   const yP=r2(shown.reduce((s,r)=>s+(r.p||0),0)),yG=shown.reduce((s,r)=>s+(r.g||0),0),yN=shown.reduce((s,r)=>s+(r.n||0),0);
   const fullG=rows.reduce((s,r)=>s+(r.g||0),0);
   const yrRows=rows.map(r=>goalRow(y,r.i)).filter(Boolean);const pMin=yrRows.reduce((s,g)=>s+(g.min||0),0),pMax=yrRows.reduce((s,g)=>s+(g.max||0),0);
   const yS=S.projects.filter(p=>p.status==="Sold"&&p.soldOn&&p.soldOn.slice(0,4)===String(y)).reduce((s,p)=>s+(p.sold||0),0);
-  return`<section class="card" style="display:flex;flex-direction:column;gap:6px">
+  const A=`<section class="card" style="display:flex;flex-direction:column;gap:6px">
     <div class="between"><span class="b small" style="font-size:13px">${esc(monthName(m))}</span><button type="button" class="btn sm ghost" style="height:30px;font-size:12px" data-act="goals">Edit goals</button></div>
     <div class="grid2"><div style="display:flex;flex-direction:column"><span class="small muted b">Sales</span><span class="b" style="font-size:22px">${money(sales)}</span></div><div style="display:flex;flex-direction:column"><span class="small muted b">Profit</span><span class="b" style="font-size:22px;color:var(--mint)">${money(prof)}</span></div></div>
     ${g&&g.goal?`<div class="track"><i style="width:${Math.max(0,Math.min(100,Math.round(prof/g.goal*100)))}%;background:var(--pink)"></i></div><span class="small muted b">${Math.round(prof/g.goal*100)}% of the ${money0(g.goal)} goal · ${n} of ${g.min!=null?g.min+(g.max!=null&&g.max!==g.min?"–"+g.max:""):"?"} pieces sold</span>`:`<span class="small muted">No goal set for this month.</span>`}
-  </section>
-  <section class="card" style="display:flex;flex-direction:column;gap:8px">
+  </section>`;
+  const B=`<section class="card" style="display:flex;flex-direction:column;gap:8px">
     <div class="between"><h2>Profit vs goal · ${y}</h2><div class="row small muted b" style="gap:12px"><span class="row" style="gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:var(--pink)"></span>Profit</span><span class="row" style="gap:5px"><span style="width:14px;height:2px;background:var(--ink)"></span>Goal</span></div></div>
     <svg width="100%" viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly profit against goal for ${y}" style="font-family:Nunito,sans-serif">${grid}${bars}</svg>
-  </section>
-  <section class="card" style="padding:10px 14px">
+  </section>`;
+  const C=`<section class="card" style="padding:10px 14px">
     <div class="tbl" style="grid-template-columns:1fr 78px 66px 46px"><span class="small muted b">Month</span><span class="small muted b r">Profit</span><span class="small muted b r">Goal</span><span class="small muted b r">Hit</span>
     ${shown.map(r=>{const hit=r.g?Math.round((r.p||0)/r.g*100)+"%":"–";const cur=r.i===mo;const st=cur?' style="color:var(--pink);font-weight:800"':(r.p?"":' style="color:var(--muted)"');return`<span${st}>${MONTHS[r.i-1]}</span><span class="r"${st}>${money(r.p||0)}</span><span class="r muted">${r.g!=null?money0(r.g):"–"}</span><span class="r"${st}>${hit}</span>`;}).join("")}</div>
     <div style="height:1px;background:var(--line);margin:8px 0"></div>
     <div class="tbl" style="grid-template-columns:1fr 78px 66px 46px;font-weight:800"><span>Year so far</span><span class="r pos">${money0(yP)}</span><span class="r muted">${money0(yG)}</span><span class="r">${yG?Math.round(yP/yG*100)+"%":"–"}</span></div>
     <p class="small muted" style="margin:6px 0 0">${yN} piece${yN===1?"":"s"} sold${pMax?" (forecast "+pMin+"–"+pMax+")":""} · ${money0(yS)} in sales${yS?" · "+pct(yP/yS)+" margin":""}${fullG?" · full-year goal "+money0(fullG):""}</p>
   </section>`;
+  return DESK?`<div class="dk-pnl"><div class="dk-pnl-l">${A}${B}</div>${C}</div>`:A+B+C;
 }
 
 /* =====================================================================
@@ -1192,6 +1196,8 @@ function deskHome(){
   </main>`;
 }
 document.addEventListener("click",e=>{const b=e.target.closest('[data-act="dkOpenP"]');if(!b)return;VIEW.tab="projects";LS.set("tab","projects");D.edit=false;openProject(b.dataset.id);});
+
+let rzT=null;window.addEventListener("resize",()=>{if(!DESK||VIEW.tab!=="money"||VIEW.money!=="pnl")return;clearTimeout(rzT);rzT=setTimeout(()=>{if(!holdRender())render();},150);});
 /* =====================================================================
    SHEETS (pop-up forms) and BACK BUTTON
    ===================================================================== */
