@@ -15,7 +15,7 @@ Business app for **Refinished by Cecilia**, Gary and Cecilia's furniture flippin
 | Live app | https://flip-friend.pages.dev/ (Cloudflare Pages from `main` of `Dailuo-source/Flip-Friend`) |
 | Google account | **refinishedbycecilia@gmail.com** owns everything Google. In Gary's Chrome it is the second account (`/u/1/`); `/u/0/` is his personal account. Always check which account is on screen before creating or deploying anything. |
 | Database | Google Sheet **Flip Friend**, id `1YqmdD-ECb-fIfLYIwwTyN0O6OXOiaqmR0h293Gddb0E`, in the business Drive's **Flip Friend** folder. |
-| Pictures and receipts | Drive folders next to the sheet: `Project photos`, `Inspiration`, `Receipts/yyyy-MM` (made by the script). Pictures stay private and are sent to the app through the API, then cached on the phone (IndexedDB `ff-img`). |
+| Pictures and receipts | Drive folders next to the sheet: `Project photos`, `Inspiration`, `Receipts/yyyy-MM` (made by the script). Pictures are always referenced by Drive file id (names don't matter; duplicates are harmless). New inspiration uploads get unique names via `picName()` ("#41 inspiration 2026-10-19 003812-1"). Pictures stay private and are sent to the app through the API, then cached on the phone (IndexedDB `ff-img`). |
 | Backend | Apps Script project **Flip Friend** bound to the sheet (script id `1IJM_uOLskm8FdL_SyJ-ktHj5s8J1YHTEySjQQTSZ5IiHlyx3lsXb4td6`); source is `Code.gs` here. One web app deployment ("Flip Friend app", Execute as refinishedbycecilia, Anyone), deployed Oct 17, 2026. Its /exec link is saved in Script Properties (`WEB_APP_URL`) and shown by the sheet menu; keep updating that same deployment so the phone link never changes. |
 | Opening the script | **Extensions → Apps Script fails for the business account** (Google multi-account bug: "unable to open the file"). Open it directly instead: `https://script.google.com/u/1/home/projects/<script id>/edit`, and check the avatar says Cecilia. |
 | Connecting a phone | Sheet menu **Flip Friend → Show app key and phone link** gives `https://flip-friend.pages.dev/#api=<exec>&key=<key>`; the app stores both in localStorage (`ff.api`, `ff.key`). |
@@ -43,7 +43,7 @@ Business app for **Refinished by Cecilia**, Gary and Cecilia's furniture flippin
 
 ## Changing things
 
-- App files: edit `src/`, run `sh build.sh`, bump `CACHE` in `sw.js` (currently `flip-friend-v5`), commit and push to `main`. Cloudflare deploys in about a minute.
+- App files: edit `src/`, run `sh build.sh`, bump `CACHE` in `sw.js` (currently `flip-friend-v6`), commit and push to `main`. Cloudflare deploys in about a minute.
 - Code.gs: paste into Apps Script (opened from the sheet **in the business account**) and redeploy (Deploy → Manage deployments → pencil → New version).
 - Commits use author `Claude <noreply@anthropic.com>`.
 - Testing: a Node mock of SpreadsheetApp/DriveApp/UrlFetchApp running Code.gs plus Playwright (route `script.google.com` to `api()`) covers the full flow.
@@ -66,6 +66,7 @@ API: op-batched like Pantry Pal, plus single calls through `runCall_` for upload
 - Open: (none recorded)
 
 ## Changelog (latest first, keep about 10 lines)
+- 2026-10-19: Unique Drive file names for new inspiration photos (`picName`)
 - 2026-10-19: Pending (sale pending) status: `setPending`, Listing tab box on phone, Pending / Back on the market buttons on desktop Listings
 - 2026-10-19: Desktop P&L chart sized to the screen instead of scaling up; two-column P&L layout
 - 2026-10-19: Desktop Home (buttons, Needs a look, On the bench), full-width screens on large monitors

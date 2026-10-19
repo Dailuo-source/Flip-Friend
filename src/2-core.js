@@ -252,6 +252,7 @@ async function loadImg(id){
 function hydrateImages(root){(root||document).querySelectorAll("img[data-img]").forEach(async el=>{const id=el.dataset.img;if(el.dataset.done===id)return;const d=await loadImg(id);if(d&&el.dataset.img===id){el.src=d;el.dataset.done=id;el.hidden=false;}});}
 function resizeImage(file,max,q){return new Promise((res,rej)=>{const img=new Image();const url=URL.createObjectURL(file);img.onload=()=>{let w=img.naturalWidth,h=img.naturalHeight;const s=Math.min(1,(max||1280)/Math.max(w,h));w=Math.round(w*s);h=Math.round(h*s);const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);URL.revokeObjectURL(url);res(c.toDataURL("image/jpeg",q||.8));};img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("That picture couldn't be opened."));};img.src=url;});}
 function pickFiles(which){return new Promise(res=>{const el=$(which);el.value="";const done=()=>{el.removeEventListener("change",h);};const h=()=>{done();res([...el.files]);};el.addEventListener("change",h);el.click();});}
+let PICN=0;const picName=base=>{const d=new Date();return base+" "+dayKey(Date.now())+" "+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds())+"-"+(++PICN);};
 async function uploadPicture(file,kind,name){const data=await resizeImage(file,1280,.8);const r=await call("upload",{data,kind,name});IMG.set(r.id,data);idbPut(r.id,data);return r.id;}
 
 /* ---------- small UI helpers ---------- */

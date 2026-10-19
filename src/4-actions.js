@@ -57,7 +57,7 @@ function sheetNewProject(){
       closeSheet();openProject(id);
       if(photo||inspo.length)(async()=>{try{
         if(photo){const pid=await uploadPicture(photo,"project","#"+no+" "+name);store.update("projects",id,{picture:pid});}
-        for(const f of inspo){const iid=await uploadPicture(f,"inspiration","#"+no+" inspiration");store.add("inspiration",{project:String(no),picture:iid,caption:""});}
+        for(const f of inspo){const iid=await uploadPicture(f,"inspiration",picName("#"+no+" inspiration"));store.add("inspiration",{project:String(no),picture:iid,caption:""});}
       }catch(e){toast(e.message||"A picture didn't upload.");}})();
     }});
   sh.querySelector("#npName").focus();
@@ -342,14 +342,14 @@ function saveReceipt(){
 
 /* ---------- inspiration ---------- */
 async function addInspo(p){const fs=await pickFiles("#filePickMany");if(!fs.length)return;busy(true,"Saving "+fs.length+" picture"+(fs.length>1?"s":"")+"…");
-  try{for(const f of fs){const id=await uploadPicture(f,"inspiration","#"+p.no+" inspiration");store.add("inspiration",{project:String(p.no),picture:id,caption:""});}}catch(e){toast(e.message||"A picture didn't upload.");}busy(false);}
+  try{for(const f of fs){const id=await uploadPicture(f,"inspiration",picName("#"+p.no+" inspiration"));store.add("inspiration",{project:String(p.no),picture:id,caption:""});}}catch(e){toast(e.message||"A picture didn't upload.");}busy(false);}
 function sheetInspo(x){let armed=false;const p=pByNo(x.project);
   openSheet(`${head("Inspiration picture")}
     <div class="gallery" style="grid-template-columns:1fr"><div class="ph" style="height:220px"><img data-img="${esc(x.picture)}" alt="" hidden style="position:absolute;inset:0"></div></div>
     <label class="f">Caption<input class="input" id="iCap" value="${esc(x.caption||"")}" placeholder="e.g. Brass pull style"></label>
     <div class="row" style="gap:10px"><button type="button" class="btn danger" data-act="sh:del">Delete</button><button type="button" class="btn ghost" data-act="sh:replace">Replace</button><button type="button" class="btn" style="flex:1" data-act="sh:save">Save</button></div>`,{
     save(sh){store.update("inspiration",x.id,{caption:val(sh,"#iCap")});closeSheet();},
-    async replace(){const f=(await pickFiles("#filePick"))[0];if(!f)return;closeSheet();busy(true,"Saving picture…");try{const id=await uploadPicture(f,"inspiration","#"+(p?p.no:"")+" inspiration");store.update("inspiration",x.id,{picture:id});}catch(e){toast(e.message||"The picture didn't upload.");}busy(false);},
+    async replace(){const f=(await pickFiles("#filePick"))[0];if(!f)return;closeSheet();busy(true,"Saving picture…");try{const id=await uploadPicture(f,"inspiration",picName("#"+(p?p.no:"")+" inspiration"));store.update("inspiration",x.id,{picture:id});}catch(e){toast(e.message||"The picture didn't upload.");}busy(false);},
     del(sh,b){if(!armed){armed=true;b.textContent="Tap again";return;}store.del("inspiration",x.id);closeSheet();}});
 }
 
