@@ -50,7 +50,8 @@ const SCHEMA = {
     sheet: 'Supply use', key: 'supply',
     cols: [['project', 'Project', 'pno'], ['date', 'Date', 'date'], ['supply', 'Supply', 'text'],
       ['amount', 'Amount', 'num'], ['unit', 'Unit', 'text'], ['cost', 'Cost', 'num'],
-      ['shared', 'Shared with', 'text'], ['notes', 'Notes', 'text'], ['id', 'ID', 'id']],
+      ['shared', 'Shared with', 'text'], ['notes', 'Notes', 'text'], ['id', 'ID', 'id'],
+      ['category', 'Category', 'text']],
   },
   supplies: {
     sheet: 'Supplies', key: 'name',
@@ -268,11 +269,18 @@ function readAll_() {
 }
 
 function applyOp_(op) {
+  if (op.coll === 'settings' && op.op === 'set') return setSetting_(op.id, op.data && op.data.value);
   const sch = SCHEMA[op.coll];
   if (!sch || sch.readOnly) throw new Error('Unknown list "' + op.coll + '".');
   const ss = ss_();
   const sh = ss.getSheetByName(sch.sheet) || buildTab_(ss, sch);
-  const t = table_(sh, sch);
+  let t = table_(sh, sch);
+  // A field the sheet has no column for yet (e.g. a newly added one): add the column first
+  const data0 = op.data || {};
+  if (sch.cols.some(function (c) { return c[0] in data0 && t.cols[c[0]] == null; })) {
+    buildTab_(ss, sch);
+    t = table_(sh, sch);
+  }
   const row = op.id ? t.rowOf[op.id] : null;
 
   if (op.op === 'del') {
@@ -303,6 +311,26 @@ function applyOp_(op) {
     const i = t.cols[c[0]];
     if (i != null) sh.getRange(row, i + 1).setValue(toCell_(data[c[0]], c[2]));
   });
+}
+
+/** Settings is read-only to the app except for this: set one Key's Value (adds the row if it's missing). */
+function setSetting_(key, value) {
+  key = String(key || '').trim();
+  if (!/^(Cost categories)$/i.test(key)) throw new Error('That setting can only be changed in the sheet.');
+  const ss = ss_();
+  const sch = SCHEMA.settings;
+  const sh = ss.getSheetByName(sch.sheet) || buildTab_(ss, sch);
+  const width = Math.max(sh.getLastColumn(), 2);
+  const vals = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), width).getValues();
+  const cols = headerMap_(vals[0], sch);
+  const kc = cols.key != null ? cols.key : 0, vc = cols.value != null ? cols.value : 1;
+  for (let r = 1; r < vals.length; r++) {
+    if (label_(vals[r][kc]) === label_(key)) { sh.getRange(r + 1, vc + 1).setValue(String(value == null ? '' : value)); return; }
+  }
+  const row = [];
+  for (let i = 0; i < width; i++) row.push('');
+  row[kc] = key; row[vc] = String(value == null ? '' : value);
+  sh.getRange(sh.getLastRow() + 1, 1, 1, width).setValues([row]);
 }
 
 /** New projects always get the next number after the highest one in the sheet. */
