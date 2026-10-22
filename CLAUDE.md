@@ -1,7 +1,7 @@
 # Flip Friend — Brief
 
 > **Claude: read this first.** Open only the files a change touches; use the code map to jump to a function.
-> **`index.html` is generated** from `src/` by `build.sh` (~130 KB). Never read or edit it; edit `src/`, then run `sh build.sh`. The `src/` files are large too: search for function names.
+> **`web/index.html` is generated** from `src/` by `build.sh` (~130 KB). Never read or edit it; edit `src/`, then run `sh build.sh`. The `src/` files are large too: search for function names.
 > At the end of a work session, update **Status** and add one line to **Changelog** (keep about 5).
 
 Business app for **Refinished by Cecilia**, Gary and Cecilia's furniture flipping business: projects (pieces bought to flip), hours per step, supplies and supply use, listings and market interest, sales and profit against monthly goals, and business spending (separate from Gary's audit expense sheet). Samsung Android phones (Chrome PWA) and desktop browsers (wide screens get a desktop layout). Dark mode only.
@@ -12,7 +12,7 @@ Business app for **Refinished by Cecilia**, Gary and Cecilia's furniture flippin
 
 | Piece | Location |
 | --- | --- |
-| Live app | https://flip-friend.pages.dev/ (Cloudflare Pages from `main`) |
+| Live app | https://flip-friend.pages.dev/ (Cloudflare Pages from `main`, build output directory `web`, so only `web/` is published) |
 | Google account | **refinishedbycecilia@gmail.com** owns everything Google. In Gary's Chrome it's `/u/1/`; `/u/0/` is his personal account. Always check the account on screen before creating or deploying |
 | Database | Google Sheet **Flip Friend**, id `1YqmdD-ECb-fIfLYIwwTyN0O6OXOiaqmR0h293Gddb0E`, in the business Drive's **Flip Friend** folder |
 | Pictures and receipts | Drive folders by the sheet: `Project photos`, `Inspiration`, `Receipts/yyyy-MM`. Referenced by Drive file id only; private, sent through the API and cached on the phone (IndexedDB `ff-img`). New inspiration uploads named by `picName()` |
@@ -43,9 +43,20 @@ Business app for **Refinished by Cecilia**, Gary and Cecilia's furniture flippin
 
 ## Changing things
 
-- App files: edit `src/`, run `sh build.sh`, bump `CACHE` in `sw.js` (currently `flip-friend-v6`), commit and push to `main`.
+- App files: edit `src/`, run `sh build.sh`, bump `CACHE` in `web/sw.js` (currently `flip-friend-v6`), commit and push to `main`.
 - Code.gs: paste into Apps Script (business account) and redeploy (Deploy → Manage deployments → pencil → New version).
 - Commits use author `Claude <noreply@anthropic.com>`.
+
+## Deploying Code.gs
+
+- Web app deployment ID: `AKfycbxI25N4m70gWGzLGllZF2fp7yAvmmtronnHXoCdQMFVoXhY1yeZWYe6LjfKRHprqms-`. Always update this deployment so the /exec URL never changes.
+- From this folder, `.clasp.json` points clasp at the script project (rootDir is the repo root, where `Code.gs` is):
+  ```
+  clasp push
+  clasp deploy -i AKfycbxI25N4m70gWGzLGllZF2fp7yAvmmtronnHXoCdQMFVoXhY1yeZWYe6LjfKRHprqms- -d "what changed"
+  ```
+- Never run `clasp deploy` without `-i`: that creates a new deployment with a new /exec URL. `clasp deployments` lists them.
+- clasp is signed in as garyluo.gs@gmail.com, but this project belongs to refinishedbycecilia@gmail.com and runs as that account. Check the deployment still runs as that account after deploying with clasp.
 
 ## Code map
 API: op-batched like Pantry Pal, plus single calls through `runCall_` for uploads, receipts and barcode lookups.
@@ -58,13 +69,14 @@ API: op-batched like Pantry Pal, plus single calls through `runCall_` for upload
 | `src/3-views.js` | 326 | `render`, `renderNav`; `viewHome`; `viewProjects` (`projectCard`); `viewProject` (`subSteps`, `subCosts`, `subListing`, `subInspo`, `timerHTML`); `viewListings`; `viewSupplies`; `viewMoney` (`moneyExpenses`, `moneyPnl`) |
 | `src/3b-desktop.js` | 290 | `deskNav`, `deskView`, `deskHome`, `deskProjects` (`viewTable`, `editTable`, `bulkBar`, `saveBar`, `saveDrafts`), `deskListed`, `deskSupplies`, `deskExpenses`, `deskBatch` (`batchFiles`, `batchPaste`, `saveBatch`); own listeners (actions start with `dk`) |
 | `src/4-actions.js` | 466 | panels (`openSheet`, `syncGuard`, `openProject`); projects (`sheetNewProject`, `sheetEditProject`, `setPicture`); timer (`sheetTime`, `startTimer`, `stopTimer`); listings (`sheetListEvent`, `plusInquiry`, `sheetMarkSold`, `undoSale`, `setPending`); supplies (`sheetUse`, `sheetSupply`, `sheetNewSupply`); money (`sheetGoals`, `sheetExpense`, `sheetReceipt`, `saveReceipt`); `sheetInspo`; barcode (`openScanner`, `handleBarcode`) |
-| `index.html` | generated | do not read or edit |
+| `web/index.html` | generated | do not read or edit |
 
 ## Status
 - Working: live on flip-friend.pages.dev with history imported; desktop layout with bulk edit and batch expenses; Pending status.
 - Open: (none recorded)
 
 ## Changelog (latest first, keep about 5 lines)
+- 2026-10-21: Moved the site files into `web/`; only that folder is published
 - 2026-10-22: Trimmed this brief
 - 2026-10-19: Unique Drive names for new inspiration photos (`picName`)
 - 2026-10-19: Pending (sale pending) status
