@@ -79,7 +79,7 @@ async function call(fn,args){
   return res.results[0];
 }
 const uid=()=>("x"+Date.now().toString(36)+Math.random().toString(36).slice(2,9));
-function applyLocal(o){const arr=S[o.coll];if(o.op==="add"){const rec=Object.assign({id:o.id},o.data);const i=arr.findIndex(d=>d.id===o.id);if(i>=0)arr[i]=rec;else arr.push(rec);}else if(o.op==="update"){const x=arr.find(d=>d.id===o.id);if(x)Object.assign(x,o.data);}else S[o.coll]=arr.filter(d=>d.id!==o.id);}
+function applyLocal(o){const arr=S[o.coll];if(o.op==="set"){const x=arr.find(d=>eqi(d.key,o.id));if(x)x.value=o.data.value;else arr.push({key:o.id,value:o.data.value});return;}if(o.op==="add"){const rec=Object.assign({id:o.id},o.data);const i=arr.findIndex(d=>d.id===o.id);if(i>=0)arr[i]=rec;else arr.push(rec);}else if(o.op==="update"){const x=arr.find(d=>d.id===o.id);if(x)Object.assign(x,o.data);}else S[o.coll]=arr.filter(d=>d.id!==o.id);}
 function enqueue(o){queue.push(o);applyLocal(o);LS.set("queue",JSON.stringify(queue));onData();clearTimeout(flushT);flushT=setTimeout(flush,350);}
 const store={
   add(c,data){const id=uid();enqueue({op:"add",coll:c,id,data});return id;},
@@ -137,6 +137,23 @@ function stepDetail(name){const m={};String(setting("Step details")||"").split("
   return{"pick-up":"Bringing it home","prep":"Clean, sand, tape, fill","prime":"Primer or pre-stain","paint":"Paint, stain, touch-up","poly":"Poly top-coat","finish & list":"Liners, beeswax, hardware, photos, listing"}[String(name).toLowerCase()]||"";}
 const UNITS=()=>{const l=splitList(setting("Units"));return l.length?l:["each","sheet","pack","roll","can","bottle","qt","L","mL","oz"];};
 const SUPCATS=()=>{const l=splitList(setting("Supply categories"));return l.length?l:["Strip & sand","Paint & finish","Hardware","Upholstery","Other"];};
+/* Cost categories: how a project's supply costs are grouped, in refinishing-step order. Editable in the app (Costs → Edit categories); saved to Settings "Cost categories". */
+const COSTCATS=()=>{const l=splitList(setting("Cost categories"));return l.length?l:["Cleaning & stripping","Sandpaper","Repairs","Primer","Paint","Stain","Poly & topcoat","Rollers & brushes","Hardware & liners","Upholstery","Other"];};
+/* [what the supply name looks like, what a matching category name looks like]. Order matters: first match wins. */
+const CAT_GUESS=[[/clean|strip|degreas|\btsp\b|krud|solvent|mineral spirit|vinegar|soap/,/clean|strip/],[/sand|abrasive|grit|steel wool|scuff/,/sand/],
+  [/knob|pull|hinge|hardware|liner|glide|handle|brass|caster|rail guide/,/hardware|liner|knob/],[/foam|batting|fabric|vinyl|upholst|staple/,/uphol|fabric/],
+  [/poly|varnish|lacquer|top ?coat|wax|urethane|sealer/,/poly|top|seal|varnish/],[/stain|danish|oil|dye|conditioner/,/stain|oil/],[/roller|brush|sponge|tray|tape|drop cloth|applicator|glove/,/roller|brush|applic|tool/],
+  [/primer|prime|\bbin\b|kilz|shellac/,/prim/],[/paint|chalk|enamel|restore-a-finish|rub ?n ?buff/,/paint/],
+  [/filler|putty|glue|epoxy|bondo|bracket|screw|nail|dowel|veneer|base|leg/,/repair|fill|glue/]];
+/** Category for a supply name: one already picked for that supply, else a guess from the name, else the last category ("Other"). */
+function guessCat(name,skipId){const cats=COSTCATS(),n=String(name||"").toLowerCase().trim();
+  const exact=cats.find(c=>c.toLowerCase()===n);if(exact)return exact;
+  const prev=S.supplyuse.filter(u=>u.id!==skipId&&u.category&&cats.includes(u.category)&&String(u.supply||"").toLowerCase().trim()===n).pop();if(prev)return prev.category;
+  for(const g of CAT_GUESS)if(g[0].test(n)){const c=cats.find(x=>g[1].test(x.toLowerCase()));if(c)return c;}
+  return cats.find(c=>/^other$/i.test(c))||cats[cats.length-1];}
+const catOf=u=>u.category&&COSTCATS().includes(u.category)?u.category:guessCat(u.supply,u.id);
+/** Change one Settings value (the tab is otherwise read-only to the app). */
+function saveSetting(key,value){enqueue({op:"set",coll:"settings",id:key,data:{value}});}
 const EXPCATS=()=>{const l=splitList(setting("Expense categories"));return l.length?l:["Pieces bought","Supplies","Hardware","Gas & fees","Other"];};
 const PLATFORMS=()=>{const l=splitList(setting("Platforms"));return l.length?l:["Marketplace","Kijiji","Instagram","In person","Other"];};
 const STATUSES=["Not started","In progress","Listed","Pending","Sold","Disposed"];

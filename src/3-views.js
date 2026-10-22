@@ -153,10 +153,15 @@ function subSteps(p){
 function subCosts(p){
   const u=usesOf(p).slice().sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
   const total=r2((p.paid||0)+costsOf(p)),li=listInfo(p),pr=profitOf(p),h=hoursOf(p);
+  /* Supply costs grouped by cost category, in refinishing-step order */
+  const groups=COSTCATS().map(c=>({c,items:u.filter(x=>catOf(x)===c)})).filter(g=>g.items.length);
+  const item=(x,sub)=>`<button type="button" class="lrow${sub?" sub":""}" data-act="editUse" data-id="${x.id}"><span class="grow"><span class="${sub?"":"b"}">${esc(x.supply)}</span>${x.amount!=null?`<span class="muted small"> · ${esc(x.amount)} ${esc(x.unit||"")}</span>`:""}${x.shared?`<span class="muted small"> · shared</span>`:""}</span><span class="${sub?"":"b"}">${money(x.cost||0)}</span></button>`;
+  const grp=g=>g.items.length===1&&eqi(g.items[0].supply,g.c)?item(g.items[0]):`<div class="cgrp"><div class="between"><span class="b">${esc(g.c)}</span><span class="b">${money(r2(g.items.reduce((s,x)=>s+(x.cost||0),0)))}</span></div>${g.items.map(x=>item(x,true)).join("")}</div>`;
   return`<section class="card" style="display:flex;flex-direction:column;gap:6px">
     <div class="between"><h2>Costs</h2><button type="button" class="btn sm ghost" data-act="useForProject">+ Log supply use</button></div>
+    <div class="between small muted" style="margin-top:-2px"><span>Grouped by step</span><button type="button" class="link" style="font-size:13px" data-act="costCats">Edit categories</button></div>
     <button type="button" class="lrow" data-act="editProject"><span class="grow b">Furniture (price paid)</span><span class="b">${money(p.paid||0)}</span></button>
-    ${u.map(x=>`<button type="button" class="lrow" data-act="editUse" data-id="${x.id}"><span class="grow"><span class="b">${esc(x.supply)}</span>${x.amount!=null?`<span class="muted small"> · ${esc(x.amount)} ${esc(x.unit||"")}</span>`:""}${x.shared?`<span class="muted small"> · shared</span>`:""}</span><span class="b">${money(x.cost||0)}</span></button>`).join("")||'<p class="small muted" style="margin:4px 0">No supplies logged yet.</p>'}
+    ${groups.map(grp).join("")||'<p class="small muted" style="margin:4px 0">No supplies logged yet.</p>'}
     <div class="between" style="padding-top:6px;border-top:1px solid var(--line)"><span class="b">Total in</span><span class="b" style="font-size:16px">${money(total)}</span></div>
     ${p.status==="Sold"?`<div class="okbox between" style="padding:9px 12px"><span class="b">Profit</span><span class="b" style="font-size:18px">${money(pr)}</span></div>${h?`<span class="small muted">${hrs(h)} of work · ${money(pr/h)} per hour</span>`:""}`
       :li.now!=null?`<div class="okbox between" style="padding:9px 12px"><span class="b">If it sells at ${money0(li.now)}</span><span class="b">${money(r2(li.now-total))} profit</span></div>`:""}
@@ -182,16 +187,17 @@ function subListing(p){
     <section class="card" style="display:flex;flex-direction:column;gap:4px">
       <h2>Price history</h2>
       ${rows||'<p class="small muted" style="margin:4px 0">Not listed yet.</p>'}
-      ${!sold?`<div class="row" style="gap:8px;padding-top:6px">${started?`<button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Price drop">Drop price</button><button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Relisted">Relist / new platform</button>`:`<button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Listed">Start listing</button>`}</div>`:""}
+      ${sold?`<span class="small muted" style="padding-top:4px">Sold pieces can still be corrected: tap an entry to edit it, or add one below.</span>`:""}
+      <div class="row" style="gap:8px;padding-top:6px">${started?`<button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Price drop">Drop price</button><button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Relisted">Relist / new platform</button>`:`<button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Listed">Start listing</button>`}</div>
     </section>
-    ${started||li.inq!=null?`<section class="card" style="display:flex;flex-direction:column;gap:10px">
+    ${started||sold||li.inq!=null?`<section class="card" style="display:flex;flex-direction:column;gap:10px">
       <div class="between"><h2>Market interest</h2>${li.checked?`<span class="small muted">updated ${fmtShort(li.checked)}</span>`:""}</div>
       <div class="grid3" style="text-align:center">
         <div style="display:flex;flex-direction:column"><span class="b" style="font-size:20px">${li.views!=null?li.views:"–"}</span><span class="small muted">views</span></div>
         <div style="display:flex;flex-direction:column"><span class="b" style="font-size:20px">${li.saves!=null?li.saves:"–"}</span><span class="small muted">saves</span></div>
         <div style="display:flex;flex-direction:column"><span class="b" style="font-size:20px">${li.inq!=null?li.inq:"–"}</span><span class="small muted">inquiries</span></div>
       </div>
-      ${!sold?`<div class="row" style="gap:8px"><button type="button" class="btn sm" style="flex:1;background:var(--lavBg);color:var(--lav)" data-act="plusInquiry">+1 inquiry</button><button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Check-in">Update numbers</button></div>`:""}
+      <div class="row" style="gap:8px"><button type="button" class="btn sm" style="flex:1;background:var(--lavBg);color:var(--lav)" data-act="plusInquiry">+1 inquiry</button><button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Check-in">Update numbers</button></div>
     </section>`:""}
     ${!sold&&p.status!=="Disposed"?`<button type="button" class="btn full" data-act="markSold">${I.check.replace("<svg",'<svg width="20" height="20"')}Mark as sold</button>`:""}`;
 }

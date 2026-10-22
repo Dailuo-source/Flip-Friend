@@ -120,7 +120,7 @@ setInterval(tickTimers,1000);
 
 /* ---------- listing events and selling ---------- */
 function sheetListEvent(p,type,ev){
-  const li=listInfo(p),e=ev||{event:type,date:today(),price:type==="Check-in"?null:li.now,platform:li.platform||PLATFORMS()[0]};
+  const li=listInfo(p),e=ev||{event:type,date:p.status==="Sold"&&p.soldOn?p.soldOn:today(),price:type==="Check-in"?null:li.now,platform:li.platform||PLATFORMS()[0]};
   const kind=e.event,priced=/^(listed|relisted|price drop|sold)$/i.test(kind),check=/check/i.test(kind);
   const title=ev?"Edit listing entry":{"Listed":"Start listing","Relisted":"Relist","Price drop":"Drop the price","Check-in":"Update interest numbers"}[kind]||kind;
   openSheet(`${head(title,pTitle(p))}
@@ -134,11 +134,13 @@ function sheetListEvent(p,type,ev){
       if(sh.querySelector("#lPlat"))d.platform=val(sh,"#lPlat");
       if(check){d.views=numv(sh,"#lViews");d.saves=numv(sh,"#lSaves");d.inquiries=numv(sh,"#lInq");}
       if(ev)store.update("listings",ev.id,d);else store.add("listings",d);
-      if(priced&&!/sold/i.test(kind)&&p.status!=="Sold"){store.update("projects",p.id,{list:d.price,status:"Listed"});}
+      if(priced&&!/sold/i.test(kind)){if(p.status!=="Sold")store.update("projects",p.id,{list:d.price,status:"Listed"});else syncAsking(p);}
       closeSheet();},
-    del(){store.del("listings",ev.id);closeSheet();}});
+    del(){store.del("listings",ev.id);if(p.status==="Sold")syncAsking(p);closeSheet();}});
 }
-function plusInquiry(p){const li=listInfo(p);store.add("listings",{project:String(p.no),event:"Check-in",date:today(),inquiries:(li.inq||0)+1});toast("Inquiry added · "+((li.inq||0)+1)+" so far");}
+/** On a sold piece, keep the project's list price equal to the last asking price in its history. */
+function syncAsking(p){const q=pById(p.id);if(!q)return;const n=listInfo(q).now;if(n!=null&&n!==q.list)store.update("projects",q.id,{list:n});}
+function plusInquiry(p){const li=listInfo(p);store.add("listings",{project:String(p.no),event:"Check-in",date:p.status==="Sold"&&p.soldOn?p.soldOn:today(),inquiries:(li.inq||0)+1});toast("Inquiry added · "+((li.inq||0)+1)+" so far");}
 function setPending(p,on){store.update("projects",p.id,{status:on?"Pending":"Listed"});toast(on?"Marked as sale pending":"Back on the market");}
 function sheetMarkSold(p){
   const li=listInfo(p),editing=p.status==="Sold";
@@ -172,23 +174,50 @@ function undoSale(p){const li=listInfo(p);li.ev.filter(e=>/^sold$/i.test(e.event
 function sheetUse(p,use){
   const u=use||{supply:"",amount:1,unit:"",cost:null,date:today()};
   const shelf=S.supplies.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  let catTouched=!!use;
   const fill=sh=>{const s=supByName(val(sh,"#uSup"));const other=sh.querySelector("#uOtherWrap");other.hidden=!!s||val(sh,"#uSup")!=="__other";
+    if(!catTouched)sh.querySelector("#uCat").value=guessCat(s?s.name:val(sh,"#uOther"));
     if(s&&!use){sh.querySelector("#uUnit").value=s.unit||"each";const a=numv(sh,"#uAmt")||0;sh.querySelector("#uCost").value=s.avgCost!=null?r2(a*s.avgCost):"";}};
   openSheet(`${head(use?"Edit supply cost":"Log supply use",pTitle(p))}
     <label class="f">Supply<select class="input" id="uSup">${use?opt(u.supply,u.supply):""}${!use?shelf.map(s=>opt(s.name,"",s.name+" · "+r2(s.onHand||0)+" "+(s.unit||"")+" left")).join(""):""}${!use?opt("__other","","Something else (not on the shelf)"):""}</select></label>
     <div id="uOtherWrap" ${shelf.length&&!use?"hidden":""}><label class="f">What was it?<input class="input" id="uOther" value="${esc(use?u.supply:"")}" placeholder="e.g. New legs"></label></div>
+    <label class="f">Cost category<select class="input" id="uCat">${COSTCATS().map(c=>opt(c,use?catOf(use):"")).join("")}</select></label>
     <div class="grid2"><label class="f">Amount<input class="input" id="uAmt" inputmode="decimal" value="${u.amount??""}"></label><label class="f">Unit<select class="input" id="uUnit">${UNITS().map(x=>opt(x,u.unit||"each")).join("")}</select></label></div>
     <div class="grid2"><label class="f">Cost<input class="input" id="uCost" inputmode="decimal" value="${u.cost??""}"></label><label class="f">Date<input class="input" type="date" id="uDate" value="${esc(u.date||"")}"></label></div>
     <div class="row" style="gap:10px">${use?`<button type="button" class="btn danger" data-act="sh:del">Delete</button>`:""}<button type="button" class="btn" style="flex:1" data-act="sh:save">Save</button></div>`,{
     save(sh){const sel=use?"":val(sh,"#uSup");const s=sel&&sel!=="__other"?supByName(sel):null;
       const name=s?s.name:(val(sh,"#uOther")||sel);if(!name||name==="__other"){toast("Say what the supply was.");return;}
       const amt=numv(sh,"#uAmt"),cost=numv(sh,"#uCost");
-      const d={project:String(p.no),supply:name,amount:amt,unit:val(sh,"#uUnit"),cost:cost||0,date:val(sh,"#uDate")};
+      const d={project:String(p.no),supply:name,amount:amt,unit:val(sh,"#uUnit"),cost:cost||0,date:val(sh,"#uDate"),category:val(sh,"#uCat")};
       if(use)store.update("supplyuse",use.id,d);
       else{store.add("supplyuse",d);if(s&&amt){const up={onHand:Math.max(0,r2((s.onHand||0)-amt))};if(s.reusable)up.inUse=r2((s.inUse||0)+amt);store.update("supplies",s.id,up);}markStarted(p);}
       refreshProfit(pById(p.id));closeSheet();},
     del(){store.del("supplyuse",use.id);refreshProfit(pById(p.id));closeSheet();}},
-    sh=>{if(!use){sh.querySelector("#uSup").addEventListener("change",()=>fill(sh));sh.querySelector("#uAmt").addEventListener("input",()=>fill(sh));if(shelf.length)fill(sh);else sh.querySelector("#uSup").value="__other";}});
+    sh=>{sh.querySelector("#uCat").addEventListener("change",()=>{catTouched=true;});
+      if(!use){sh.querySelector("#uOther").addEventListener("input",()=>fill(sh));sh.querySelector("#uSup").addEventListener("change",()=>fill(sh));sh.querySelector("#uAmt").addEventListener("input",()=>fill(sh));if(!shelf.length)sh.querySelector("#uSup").value="__other";fill(sh);}});
+}
+/** Edit the cost categories: rename, reorder (step order), add, remove. Renames carry over to supply costs already filed under the old name. */
+function sheetCostCats(){
+  let cats=COSTCATS().map(c=>({orig:c,name:c}));
+  const rows=sh=>{sh.querySelector("#ccList").innerHTML=cats.map((c,i)=>`<div class="catrow"><input class="input" data-ci="${i}" value="${esc(c.name)}" aria-label="Category ${i+1}"><button type="button" class="ib" data-act="sh:move" data-v="${i},-1" aria-label="Move up" ${i?"":"disabled"}>↑</button><button type="button" class="ib" data-act="sh:move" data-v="${i},1" aria-label="Move down" ${i<cats.length-1?"":"disabled"}>↓</button><button type="button" class="ib del" data-act="sh:remove" data-v="${i}" aria-label="Remove ${esc(c.name)}">×</button></div>`).join("");};
+  const read=sh=>{sh.querySelectorAll("[data-ci]").forEach(el=>{cats[+el.dataset.ci].name=el.value.trim();});};
+  openSheet(`${head("Cost categories","How each project's supply costs are grouped")}
+    <p class="small muted" style="margin:0">Keep them in the order you work: cleaning and sanding first, finishing last. Supplies you log are filed into one of these, and you can change it when you log or edit a cost.</p>
+    <div id="ccList" style="display:flex;flex-direction:column;gap:8px"></div>
+    <button type="button" class="link" data-act="sh:add" style="align-self:flex-start">+ Add a category</button>
+    <button type="button" class="btn full" data-act="sh:save">Save categories</button>`,{
+    move(sh,b){read(sh);const[i,d]=b.dataset.v.split(",").map(Number);const j=i+d;if(j<0||j>=cats.length)return;[cats[i],cats[j]]=[cats[j],cats[i]];rows(sh);},
+    remove(sh,b){read(sh);if(cats.length<2){toast("Keep at least one category.");return;}cats.splice(+b.dataset.v,1);rows(sh);},
+    add(sh){read(sh);cats.push({orig:"",name:""});rows(sh);const els=sh.querySelectorAll("[data-ci]");els[els.length-1].focus();},
+    save(sh){read(sh);const list=cats.filter(c=>c.name);
+      const names=list.map(c=>c.name.replace(/,/g," ").trim());
+      if(!names.length){toast("Keep at least one category.");return;}
+      if(new Set(names.map(n=>n.toLowerCase())).size!==names.length){toast("Two categories have the same name.");return;}
+      /* Renamed: move costs filed under the old name. Removed: those costs fall back to a best guess. */
+      const ren={};list.forEach((c,i)=>{if(c.orig&&c.orig!==names[i])ren[c.orig]=names[i];});
+      S.supplyuse.forEach(u=>{if(!u.category)return;if(ren[u.category])store.update("supplyuse",u.id,{category:ren[u.category]});else if(!names.includes(u.category))store.update("supplyuse",u.id,{category:""});});
+      saveSetting("Cost categories",names.join(", "));closeSheet();toast("Categories saved");}},
+    rows);
 }
 function sheetSupply(s,mode){
   mode=mode||"use";let picked=[],armed=false;
@@ -427,6 +456,7 @@ document.addEventListener("click",async e=>{
     case"addTime":if(p)sheetTime(p,null,b.dataset.v);break;
     case"editTime":if(p){const x=S.timelog.find(t=>t.id===b.dataset.id);if(x)sheetTime(p,x);}break;
     case"useForProject":if(p)sheetUse(p);break;
+    case"costCats":sheetCostCats();break;
     case"editUse":if(p){const x=S.supplyuse.find(u=>u.id===b.dataset.id);if(x)sheetUse(p,x);}break;
     case"listEvent":if(p)sheetListEvent(p,b.dataset.v);break;
     case"editEvent":if(p){const x=S.listings.find(l=>l.id===b.dataset.id);if(x)sheetListEvent(p,x.event,x);}break;

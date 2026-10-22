@@ -139,6 +139,13 @@ nav.tabs svg{width:24px;height:24px}
 .lrow{display:flex;align-items:center;gap:10px;padding:8px 0;border:0;border-bottom:1px solid var(--line);background:none;width:100%;text-align:left;color:inherit}
 .lrow:last-child{border-bottom:0}
 .lrow svg{width:16px;height:16px;color:var(--muted);flex-shrink:0}
+.cgrp{padding:8px 0 2px;border-bottom:1px solid var(--line)}
+.cgrp .lrow.sub{padding:6px 0 6px 14px;border-bottom:0;font-size:14px}
+.catrow{display:flex;align-items:center;gap:6px}
+.catrow .input{flex:1;min-width:0}
+.catrow .ib{width:40px;height:44px;flex-shrink:0;border:1px solid var(--line);border-radius:12px;background:none;color:var(--ink);font-size:18px;font-weight:800;padding:0}
+.catrow .ib[disabled]{opacity:.3}
+.catrow .ib.del{color:var(--orange)}
 .gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .gallery figure{margin:0;display:flex;flex-direction:column;gap:5px}
 .gallery .ph{position:relative;height:150px;border-radius:14px;background:var(--raise);overflow:hidden;display:flex;align-items:center;justify-content:center;border:0;padding:0;width:100%}
@@ -352,7 +359,7 @@ async function call(fn,args){
   return res.results[0];
 }
 const uid=()=>("x"+Date.now().toString(36)+Math.random().toString(36).slice(2,9));
-function applyLocal(o){const arr=S[o.coll];if(o.op==="add"){const rec=Object.assign({id:o.id},o.data);const i=arr.findIndex(d=>d.id===o.id);if(i>=0)arr[i]=rec;else arr.push(rec);}else if(o.op==="update"){const x=arr.find(d=>d.id===o.id);if(x)Object.assign(x,o.data);}else S[o.coll]=arr.filter(d=>d.id!==o.id);}
+function applyLocal(o){const arr=S[o.coll];if(o.op==="set"){const x=arr.find(d=>eqi(d.key,o.id));if(x)x.value=o.data.value;else arr.push({key:o.id,value:o.data.value});return;}if(o.op==="add"){const rec=Object.assign({id:o.id},o.data);const i=arr.findIndex(d=>d.id===o.id);if(i>=0)arr[i]=rec;else arr.push(rec);}else if(o.op==="update"){const x=arr.find(d=>d.id===o.id);if(x)Object.assign(x,o.data);}else S[o.coll]=arr.filter(d=>d.id!==o.id);}
 function enqueue(o){queue.push(o);applyLocal(o);LS.set("queue",JSON.stringify(queue));onData();clearTimeout(flushT);flushT=setTimeout(flush,350);}
 const store={
   add(c,data){const id=uid();enqueue({op:"add",coll:c,id,data});return id;},
@@ -410,6 +417,23 @@ function stepDetail(name){const m={};String(setting("Step details")||"").split("
   return{"pick-up":"Bringing it home","prep":"Clean, sand, tape, fill","prime":"Primer or pre-stain","paint":"Paint, stain, touch-up","poly":"Poly top-coat","finish & list":"Liners, beeswax, hardware, photos, listing"}[String(name).toLowerCase()]||"";}
 const UNITS=()=>{const l=splitList(setting("Units"));return l.length?l:["each","sheet","pack","roll","can","bottle","qt","L","mL","oz"];};
 const SUPCATS=()=>{const l=splitList(setting("Supply categories"));return l.length?l:["Strip & sand","Paint & finish","Hardware","Upholstery","Other"];};
+/* Cost categories: how a project's supply costs are grouped, in refinishing-step order. Editable in the app (Costs → Edit categories); saved to Settings "Cost categories". */
+const COSTCATS=()=>{const l=splitList(setting("Cost categories"));return l.length?l:["Cleaning & stripping","Sandpaper","Repairs","Primer","Paint","Stain","Poly & topcoat","Rollers & brushes","Hardware & liners","Upholstery","Other"];};
+/* [what the supply name looks like, what a matching category name looks like]. Order matters: first match wins. */
+const CAT_GUESS=[[/clean|strip|degreas|\btsp\b|krud|solvent|mineral spirit|vinegar|soap/,/clean|strip/],[/sand|abrasive|grit|steel wool|scuff/,/sand/],
+  [/knob|pull|hinge|hardware|liner|glide|handle|brass|caster|rail guide/,/hardware|liner|knob/],[/foam|batting|fabric|vinyl|upholst|staple/,/uphol|fabric/],
+  [/poly|varnish|lacquer|top ?coat|wax|urethane|sealer/,/poly|top|seal|varnish/],[/stain|danish|oil|dye|conditioner/,/stain|oil/],[/roller|brush|sponge|tray|tape|drop cloth|applicator|glove/,/roller|brush|applic|tool/],
+  [/primer|prime|\bbin\b|kilz|shellac/,/prim/],[/paint|chalk|enamel|restore-a-finish|rub ?n ?buff/,/paint/],
+  [/filler|putty|glue|epoxy|bondo|bracket|screw|nail|dowel|veneer|base|leg/,/repair|fill|glue/]];
+/** Category for a supply name: one already picked for that supply, else a guess from the name, else the last category ("Other"). */
+function guessCat(name,skipId){const cats=COSTCATS(),n=String(name||"").toLowerCase().trim();
+  const exact=cats.find(c=>c.toLowerCase()===n);if(exact)return exact;
+  const prev=S.supplyuse.filter(u=>u.id!==skipId&&u.category&&cats.includes(u.category)&&String(u.supply||"").toLowerCase().trim()===n).pop();if(prev)return prev.category;
+  for(const g of CAT_GUESS)if(g[0].test(n)){const c=cats.find(x=>g[1].test(x.toLowerCase()));if(c)return c;}
+  return cats.find(c=>/^other$/i.test(c))||cats[cats.length-1];}
+const catOf=u=>u.category&&COSTCATS().includes(u.category)?u.category:guessCat(u.supply,u.id);
+/** Change one Settings value (the tab is otherwise read-only to the app). */
+function saveSetting(key,value){enqueue({op:"set",coll:"settings",id:key,data:{value}});}
 const EXPCATS=()=>{const l=splitList(setting("Expense categories"));return l.length?l:["Pieces bought","Supplies","Hardware","Gas & fees","Other"];};
 const PLATFORMS=()=>{const l=splitList(setting("Platforms"));return l.length?l:["Marketplace","Kijiji","Instagram","In person","Other"];};
 const STATUSES=["Not started","In progress","Listed","Pending","Sold","Disposed"];
@@ -700,10 +724,15 @@ function subSteps(p){
 function subCosts(p){
   const u=usesOf(p).slice().sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));
   const total=r2((p.paid||0)+costsOf(p)),li=listInfo(p),pr=profitOf(p),h=hoursOf(p);
+  /* Supply costs grouped by cost category, in refinishing-step order */
+  const groups=COSTCATS().map(c=>({c,items:u.filter(x=>catOf(x)===c)})).filter(g=>g.items.length);
+  const item=(x,sub)=>`<button type="button" class="lrow${sub?" sub":""}" data-act="editUse" data-id="${x.id}"><span class="grow"><span class="${sub?"":"b"}">${esc(x.supply)}</span>${x.amount!=null?`<span class="muted small"> · ${esc(x.amount)} ${esc(x.unit||"")}</span>`:""}${x.shared?`<span class="muted small"> · shared</span>`:""}</span><span class="${sub?"":"b"}">${money(x.cost||0)}</span></button>`;
+  const grp=g=>g.items.length===1&&eqi(g.items[0].supply,g.c)?item(g.items[0]):`<div class="cgrp"><div class="between"><span class="b">${esc(g.c)}</span><span class="b">${money(r2(g.items.reduce((s,x)=>s+(x.cost||0),0)))}</span></div>${g.items.map(x=>item(x,true)).join("")}</div>`;
   return`<section class="card" style="display:flex;flex-direction:column;gap:6px">
     <div class="between"><h2>Costs</h2><button type="button" class="btn sm ghost" data-act="useForProject">+ Log supply use</button></div>
+    <div class="between small muted" style="margin-top:-2px"><span>Grouped by step</span><button type="button" class="link" style="font-size:13px" data-act="costCats">Edit categories</button></div>
     <button type="button" class="lrow" data-act="editProject"><span class="grow b">Furniture (price paid)</span><span class="b">${money(p.paid||0)}</span></button>
-    ${u.map(x=>`<button type="button" class="lrow" data-act="editUse" data-id="${x.id}"><span class="grow"><span class="b">${esc(x.supply)}</span>${x.amount!=null?`<span class="muted small"> · ${esc(x.amount)} ${esc(x.unit||"")}</span>`:""}${x.shared?`<span class="muted small"> · shared</span>`:""}</span><span class="b">${money(x.cost||0)}</span></button>`).join("")||'<p class="small muted" style="margin:4px 0">No supplies logged yet.</p>'}
+    ${groups.map(grp).join("")||'<p class="small muted" style="margin:4px 0">No supplies logged yet.</p>'}
     <div class="between" style="padding-top:6px;border-top:1px solid var(--line)"><span class="b">Total in</span><span class="b" style="font-size:16px">${money(total)}</span></div>
     ${p.status==="Sold"?`<div class="okbox between" style="padding:9px 12px"><span class="b">Profit</span><span class="b" style="font-size:18px">${money(pr)}</span></div>${h?`<span class="small muted">${hrs(h)} of work · ${money(pr/h)} per hour</span>`:""}`
       :li.now!=null?`<div class="okbox between" style="padding:9px 12px"><span class="b">If it sells at ${money0(li.now)}</span><span class="b">${money(r2(li.now-total))} profit</span></div>`:""}
@@ -729,16 +758,17 @@ function subListing(p){
     <section class="card" style="display:flex;flex-direction:column;gap:4px">
       <h2>Price history</h2>
       ${rows||'<p class="small muted" style="margin:4px 0">Not listed yet.</p>'}
-      ${!sold?`<div class="row" style="gap:8px;padding-top:6px">${started?`<button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Price drop">Drop price</button><button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Relisted">Relist / new platform</button>`:`<button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Listed">Start listing</button>`}</div>`:""}
+      ${sold?`<span class="small muted" style="padding-top:4px">Sold pieces can still be corrected: tap an entry to edit it, or add one below.</span>`:""}
+      <div class="row" style="gap:8px;padding-top:6px">${started?`<button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Price drop">Drop price</button><button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Relisted">Relist / new platform</button>`:`<button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Listed">Start listing</button>`}</div>
     </section>
-    ${started||li.inq!=null?`<section class="card" style="display:flex;flex-direction:column;gap:10px">
+    ${started||sold||li.inq!=null?`<section class="card" style="display:flex;flex-direction:column;gap:10px">
       <div class="between"><h2>Market interest</h2>${li.checked?`<span class="small muted">updated ${fmtShort(li.checked)}</span>`:""}</div>
       <div class="grid3" style="text-align:center">
         <div style="display:flex;flex-direction:column"><span class="b" style="font-size:20px">${li.views!=null?li.views:"–"}</span><span class="small muted">views</span></div>
         <div style="display:flex;flex-direction:column"><span class="b" style="font-size:20px">${li.saves!=null?li.saves:"–"}</span><span class="small muted">saves</span></div>
         <div style="display:flex;flex-direction:column"><span class="b" style="font-size:20px">${li.inq!=null?li.inq:"–"}</span><span class="small muted">inquiries</span></div>
       </div>
-      ${!sold?`<div class="row" style="gap:8px"><button type="button" class="btn sm" style="flex:1;background:var(--lavBg);color:var(--lav)" data-act="plusInquiry">+1 inquiry</button><button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Check-in">Update numbers</button></div>`:""}
+      <div class="row" style="gap:8px"><button type="button" class="btn sm" style="flex:1;background:var(--lavBg);color:var(--lav)" data-act="plusInquiry">+1 inquiry</button><button type="button" class="btn sm ghost" style="flex:1" data-act="listEvent" data-v="Check-in">Update numbers</button></div>
     </section>`:""}
     ${!sold&&p.status!=="Disposed"?`<button type="button" class="btn full" data-act="markSold">${I.check.replace("<svg",'<svg width="20" height="20"')}Mark as sold</button>`:""}`;
 }
@@ -1324,7 +1354,7 @@ setInterval(tickTimers,1000);
 
 /* ---------- listing events and selling ---------- */
 function sheetListEvent(p,type,ev){
-  const li=listInfo(p),e=ev||{event:type,date:today(),price:type==="Check-in"?null:li.now,platform:li.platform||PLATFORMS()[0]};
+  const li=listInfo(p),e=ev||{event:type,date:p.status==="Sold"&&p.soldOn?p.soldOn:today(),price:type==="Check-in"?null:li.now,platform:li.platform||PLATFORMS()[0]};
   const kind=e.event,priced=/^(listed|relisted|price drop|sold)$/i.test(kind),check=/check/i.test(kind);
   const title=ev?"Edit listing entry":{"Listed":"Start listing","Relisted":"Relist","Price drop":"Drop the price","Check-in":"Update interest numbers"}[kind]||kind;
   openSheet(`${head(title,pTitle(p))}
@@ -1338,11 +1368,13 @@ function sheetListEvent(p,type,ev){
       if(sh.querySelector("#lPlat"))d.platform=val(sh,"#lPlat");
       if(check){d.views=numv(sh,"#lViews");d.saves=numv(sh,"#lSaves");d.inquiries=numv(sh,"#lInq");}
       if(ev)store.update("listings",ev.id,d);else store.add("listings",d);
-      if(priced&&!/sold/i.test(kind)&&p.status!=="Sold"){store.update("projects",p.id,{list:d.price,status:"Listed"});}
+      if(priced&&!/sold/i.test(kind)){if(p.status!=="Sold")store.update("projects",p.id,{list:d.price,status:"Listed"});else syncAsking(p);}
       closeSheet();},
-    del(){store.del("listings",ev.id);closeSheet();}});
+    del(){store.del("listings",ev.id);if(p.status==="Sold")syncAsking(p);closeSheet();}});
 }
-function plusInquiry(p){const li=listInfo(p);store.add("listings",{project:String(p.no),event:"Check-in",date:today(),inquiries:(li.inq||0)+1});toast("Inquiry added · "+((li.inq||0)+1)+" so far");}
+/** On a sold piece, keep the project's list price equal to the last asking price in its history. */
+function syncAsking(p){const q=pById(p.id);if(!q)return;const n=listInfo(q).now;if(n!=null&&n!==q.list)store.update("projects",q.id,{list:n});}
+function plusInquiry(p){const li=listInfo(p);store.add("listings",{project:String(p.no),event:"Check-in",date:p.status==="Sold"&&p.soldOn?p.soldOn:today(),inquiries:(li.inq||0)+1});toast("Inquiry added · "+((li.inq||0)+1)+" so far");}
 function setPending(p,on){store.update("projects",p.id,{status:on?"Pending":"Listed"});toast(on?"Marked as sale pending":"Back on the market");}
 function sheetMarkSold(p){
   const li=listInfo(p),editing=p.status==="Sold";
@@ -1376,23 +1408,50 @@ function undoSale(p){const li=listInfo(p);li.ev.filter(e=>/^sold$/i.test(e.event
 function sheetUse(p,use){
   const u=use||{supply:"",amount:1,unit:"",cost:null,date:today()};
   const shelf=S.supplies.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  let catTouched=!!use;
   const fill=sh=>{const s=supByName(val(sh,"#uSup"));const other=sh.querySelector("#uOtherWrap");other.hidden=!!s||val(sh,"#uSup")!=="__other";
+    if(!catTouched)sh.querySelector("#uCat").value=guessCat(s?s.name:val(sh,"#uOther"));
     if(s&&!use){sh.querySelector("#uUnit").value=s.unit||"each";const a=numv(sh,"#uAmt")||0;sh.querySelector("#uCost").value=s.avgCost!=null?r2(a*s.avgCost):"";}};
   openSheet(`${head(use?"Edit supply cost":"Log supply use",pTitle(p))}
     <label class="f">Supply<select class="input" id="uSup">${use?opt(u.supply,u.supply):""}${!use?shelf.map(s=>opt(s.name,"",s.name+" · "+r2(s.onHand||0)+" "+(s.unit||"")+" left")).join(""):""}${!use?opt("__other","","Something else (not on the shelf)"):""}</select></label>
     <div id="uOtherWrap" ${shelf.length&&!use?"hidden":""}><label class="f">What was it?<input class="input" id="uOther" value="${esc(use?u.supply:"")}" placeholder="e.g. New legs"></label></div>
+    <label class="f">Cost category<select class="input" id="uCat">${COSTCATS().map(c=>opt(c,use?catOf(use):"")).join("")}</select></label>
     <div class="grid2"><label class="f">Amount<input class="input" id="uAmt" inputmode="decimal" value="${u.amount??""}"></label><label class="f">Unit<select class="input" id="uUnit">${UNITS().map(x=>opt(x,u.unit||"each")).join("")}</select></label></div>
     <div class="grid2"><label class="f">Cost<input class="input" id="uCost" inputmode="decimal" value="${u.cost??""}"></label><label class="f">Date<input class="input" type="date" id="uDate" value="${esc(u.date||"")}"></label></div>
     <div class="row" style="gap:10px">${use?`<button type="button" class="btn danger" data-act="sh:del">Delete</button>`:""}<button type="button" class="btn" style="flex:1" data-act="sh:save">Save</button></div>`,{
     save(sh){const sel=use?"":val(sh,"#uSup");const s=sel&&sel!=="__other"?supByName(sel):null;
       const name=s?s.name:(val(sh,"#uOther")||sel);if(!name||name==="__other"){toast("Say what the supply was.");return;}
       const amt=numv(sh,"#uAmt"),cost=numv(sh,"#uCost");
-      const d={project:String(p.no),supply:name,amount:amt,unit:val(sh,"#uUnit"),cost:cost||0,date:val(sh,"#uDate")};
+      const d={project:String(p.no),supply:name,amount:amt,unit:val(sh,"#uUnit"),cost:cost||0,date:val(sh,"#uDate"),category:val(sh,"#uCat")};
       if(use)store.update("supplyuse",use.id,d);
       else{store.add("supplyuse",d);if(s&&amt){const up={onHand:Math.max(0,r2((s.onHand||0)-amt))};if(s.reusable)up.inUse=r2((s.inUse||0)+amt);store.update("supplies",s.id,up);}markStarted(p);}
       refreshProfit(pById(p.id));closeSheet();},
     del(){store.del("supplyuse",use.id);refreshProfit(pById(p.id));closeSheet();}},
-    sh=>{if(!use){sh.querySelector("#uSup").addEventListener("change",()=>fill(sh));sh.querySelector("#uAmt").addEventListener("input",()=>fill(sh));if(shelf.length)fill(sh);else sh.querySelector("#uSup").value="__other";}});
+    sh=>{sh.querySelector("#uCat").addEventListener("change",()=>{catTouched=true;});
+      if(!use){sh.querySelector("#uOther").addEventListener("input",()=>fill(sh));sh.querySelector("#uSup").addEventListener("change",()=>fill(sh));sh.querySelector("#uAmt").addEventListener("input",()=>fill(sh));if(!shelf.length)sh.querySelector("#uSup").value="__other";fill(sh);}});
+}
+/** Edit the cost categories: rename, reorder (step order), add, remove. Renames carry over to supply costs already filed under the old name. */
+function sheetCostCats(){
+  let cats=COSTCATS().map(c=>({orig:c,name:c}));
+  const rows=sh=>{sh.querySelector("#ccList").innerHTML=cats.map((c,i)=>`<div class="catrow"><input class="input" data-ci="${i}" value="${esc(c.name)}" aria-label="Category ${i+1}"><button type="button" class="ib" data-act="sh:move" data-v="${i},-1" aria-label="Move up" ${i?"":"disabled"}>↑</button><button type="button" class="ib" data-act="sh:move" data-v="${i},1" aria-label="Move down" ${i<cats.length-1?"":"disabled"}>↓</button><button type="button" class="ib del" data-act="sh:remove" data-v="${i}" aria-label="Remove ${esc(c.name)}">×</button></div>`).join("");};
+  const read=sh=>{sh.querySelectorAll("[data-ci]").forEach(el=>{cats[+el.dataset.ci].name=el.value.trim();});};
+  openSheet(`${head("Cost categories","How each project's supply costs are grouped")}
+    <p class="small muted" style="margin:0">Keep them in the order you work: cleaning and sanding first, finishing last. Supplies you log are filed into one of these, and you can change it when you log or edit a cost.</p>
+    <div id="ccList" style="display:flex;flex-direction:column;gap:8px"></div>
+    <button type="button" class="link" data-act="sh:add" style="align-self:flex-start">+ Add a category</button>
+    <button type="button" class="btn full" data-act="sh:save">Save categories</button>`,{
+    move(sh,b){read(sh);const[i,d]=b.dataset.v.split(",").map(Number);const j=i+d;if(j<0||j>=cats.length)return;[cats[i],cats[j]]=[cats[j],cats[i]];rows(sh);},
+    remove(sh,b){read(sh);if(cats.length<2){toast("Keep at least one category.");return;}cats.splice(+b.dataset.v,1);rows(sh);},
+    add(sh){read(sh);cats.push({orig:"",name:""});rows(sh);const els=sh.querySelectorAll("[data-ci]");els[els.length-1].focus();},
+    save(sh){read(sh);const list=cats.filter(c=>c.name);
+      const names=list.map(c=>c.name.replace(/,/g," ").trim());
+      if(!names.length){toast("Keep at least one category.");return;}
+      if(new Set(names.map(n=>n.toLowerCase())).size!==names.length){toast("Two categories have the same name.");return;}
+      /* Renamed: move costs filed under the old name. Removed: those costs fall back to a best guess. */
+      const ren={};list.forEach((c,i)=>{if(c.orig&&c.orig!==names[i])ren[c.orig]=names[i];});
+      S.supplyuse.forEach(u=>{if(!u.category)return;if(ren[u.category])store.update("supplyuse",u.id,{category:ren[u.category]});else if(!names.includes(u.category))store.update("supplyuse",u.id,{category:""});});
+      saveSetting("Cost categories",names.join(", "));closeSheet();toast("Categories saved");}},
+    rows);
 }
 function sheetSupply(s,mode){
   mode=mode||"use";let picked=[],armed=false;
@@ -1631,6 +1690,7 @@ document.addEventListener("click",async e=>{
     case"addTime":if(p)sheetTime(p,null,b.dataset.v);break;
     case"editTime":if(p){const x=S.timelog.find(t=>t.id===b.dataset.id);if(x)sheetTime(p,x);}break;
     case"useForProject":if(p)sheetUse(p);break;
+    case"costCats":sheetCostCats();break;
     case"editUse":if(p){const x=S.supplyuse.find(u=>u.id===b.dataset.id);if(x)sheetUse(p,x);}break;
     case"listEvent":if(p)sheetListEvent(p,b.dataset.v);break;
     case"editEvent":if(p){const x=S.listings.find(l=>l.id===b.dataset.id);if(x)sheetListEvent(p,x.event,x);}break;

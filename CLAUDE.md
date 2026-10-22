@@ -26,13 +26,13 @@ Business app for **Refinished by Cecilia**, Gary and Cecilia's furniture flippin
 - **Projects**: No, Name, Status (Not started / In progress / Listed / Pending / Sold / Disposed; Pending = buyer committed, counts as open, shows with listings), Started, Price paid, List price, Sold price, Delivery fee, Sold on, Profit, Time to sell, Days worked, Notes, Picture, Inspiration notes, Updated, ID, Sold through. Server assigns new numbers as highest + 1 (there's a **16B**). Imported profits are kept as recorded; profit is only recalculated when a sale or cost is edited.
 - **Time log**: Project, Step, Label, Date, Hours, Notes, ID. Steps from Settings (Pick-up, Prep, Prime, Paint, Poly, Finish & list). A step is done once a later step has time, or the piece is listed/sold. Timer in localStorage `ff.timer`.
 - **Listings**: Project, Date, Event (Listed / Price drop / Relisted / Check-in / Sold), Price, Platform, Views, Saves, Inquiries, Notes, ID. Interest numbers are cumulative: latest non-blank wins.
-- **Supply use**: Project, Date, Supply, Amount, Unit, Cost, Shared with, Notes, ID. Reusable supplies split cost across the projects picked.
+- **Supply use**: Project, Date, Supply, Amount, Unit, Cost, Shared with, Notes, ID, Category. Reusable supplies split cost across the projects picked. Category = cost category (blank → `catOf()` guesses: same supply's last pick, then name keywords `CAT_GUESS`, then Other). Costs tab groups by `COSTCATS()` order.
 - **Supplies**: Name (generic, e.g. "Water-based poly"), Category, Unit, On hand, Avg cost per unit, Reusable, In use, Low at, ID.
 - **Barcodes**: Barcode, Product name, Supply. Lookup via upcitemdb trial (100/day), then `genericName()` maps brands to shelf names.
 - **Expenses**: app-only spending; receipts OCR'd with Drive text recognition (temporary Doc, then trashed).
 - **Goals**: Year, Month, Profit goal, Pieces min, Pieces max, ID.
 - **Inspiration**: Project, Picture, Caption, ID.
-- **Settings** (hidden, read-only to the app): Steps, Step details, Statuses, Units, Supply categories, Expense categories, Listing events, Platforms.
+- **Settings** (hidden): Steps, Step details, Statuses, Units, Supply categories, Expense categories, Listing events, Platforms, Cost categories. Read-only to the app except **Cost categories** (op `set` → `setSetting_`, whitelisted; edited in Costs → Edit categories; renames carry over to Supply use rows).
 
 ## App design rules
 
@@ -43,7 +43,7 @@ Business app for **Refinished by Cecilia**, Gary and Cecilia's furniture flippin
 
 ## Changing things
 
-- App files: edit `src/`, run `sh build.sh`, bump `CACHE` in `web/sw.js` (currently `flip-friend-v6`), commit and push to `main`.
+- App files: edit `src/`, run `sh build.sh`, bump `CACHE` in `web/sw.js` (currently `flip-friend-v7`), commit and push to `main`.
 - Code.gs: paste into Apps Script (business account) and redeploy (Deploy → Manage deployments → pencil → New version).
 - Commits use author `Claude <noreply@anthropic.com>`.
 
@@ -72,15 +72,16 @@ API: op-batched like Pantry Pal, plus single calls through `runCall_` for upload
 | `web/index.html` | generated | do not read or edit |
 
 ## Status
-- Working: live on flip-friend.pages.dev with history imported; desktop layout with bulk edit and batch expenses; Pending status.
+- Working: live on flip-friend.pages.dev with history imported; desktop layout with bulk edit and batch expenses; Pending status; cost categories; sold pieces keep editable price history and market interest.
+- Backend: deployment at version 2 (Oct 22, 2026).
 - Open: (none recorded)
 
 ## Changelog (latest first, keep about 5 lines)
+- 2026-10-22: Costs grouped by editable cost categories in step order; sold pieces can still add price history and interest numbers (list price follows the last asking price)
 - 2026-10-21: Moved the site files into `web/`; only that folder is published
 - 2026-10-22: Trimmed this brief
 - 2026-10-19: Unique Drive names for new inspiration photos (`picName`)
 - 2026-10-19: Pending (sale pending) status
-- 2026-10-19: Desktop P&L chart sized to the screen; desktop Home
 
 ## Working efficiently
 - Find code with search first, then read only the relevant lines. Don't read index.html top to bottom.
