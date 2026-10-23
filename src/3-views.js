@@ -299,6 +299,12 @@ function moneyExpenses(){
   <section class="card" style="padding:4px 14px">${ex.map(e=>`<button type="button" class="lrow" data-act="editExpense" data-id="${e.id}"><span class="grow" style="display:flex;flex-direction:column;min-width:0"><span class="b">${esc(e.item||e.store||"Expense")}</span><span class="small muted">${e.date?fmtShort(e.date)+" · ":""}${esc([e.store,e.category,e.project?"#"+e.project:""].filter(Boolean).join(" · "))}${e.receipt?" · receipt":""}</span></span><span class="b">${money(e.amount||0)}</span></button>`).join("")||'<p class="small muted">No expenses this month.</p>'}</section>`}
   <div style="height:70px"></div>`;
 }
+/** One figure with its own goal meter (Sales or Profit on the P&L card). */
+function goalCol(label,v,goal,color,bar){
+  const pc=goal?Math.round(v/goal*100):null;
+  return`<div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span class="small muted b">${label}</span><span class="b" style="font-size:22px;color:${color}">${money(v)}</span>
+    ${goal?`<div class="track"><i style="width:${Math.max(0,Math.min(100,pc))}%;background:${bar}"></i></div><span class="small muted b">${pc}% of ${money0(goal)} goal</span>`:`<button type="button" class="link" style="font-size:12px;align-self:flex-start;padding:0" data-act="goals">Set a ${label.toLowerCase()} goal</button>`}</div>`;
+}
 function moneyPnl(){
   const m=VIEW.month,y=+m.slice(0,4),mo=+m.slice(5,7),g=goalRow(y,mo);
   const prof=monthProfit(m),sales=monthSales(m),n=soldIn(m).length;
@@ -316,10 +322,11 @@ function moneyPnl(){
   const fullG=rows.reduce((s,r)=>s+(r.g||0),0);
   const yrRows=rows.map(r=>goalRow(y,r.i)).filter(Boolean);const pMin=yrRows.reduce((s,g)=>s+(g.min||0),0),pMax=yrRows.reduce((s,g)=>s+(g.max||0),0);
   const yS=S.projects.filter(p=>p.status==="Sold"&&p.soldOn&&p.soldOn.slice(0,4)===String(y)).reduce((s,p)=>s+(p.sold||0),0);
+  const ySG=shown.reduce((s,r)=>{const gr=goalRow(y,r.i);return s+(gr&&gr.sales||0);},0);
   const A=`<section class="card" style="display:flex;flex-direction:column;gap:6px">
     <div class="between"><span class="b small" style="font-size:13px">${esc(monthName(m))}</span><button type="button" class="btn sm ghost" style="height:30px;font-size:12px" data-act="goals">Edit goals</button></div>
-    <div class="grid2"><div style="display:flex;flex-direction:column"><span class="small muted b">Sales</span><span class="b" style="font-size:22px">${money(sales)}</span></div><div style="display:flex;flex-direction:column"><span class="small muted b">Profit</span><span class="b" style="font-size:22px;color:var(--mint)">${money(prof)}</span></div></div>
-    ${g&&g.goal?`<div class="track"><i style="width:${Math.max(0,Math.min(100,Math.round(prof/g.goal*100)))}%;background:var(--pink)"></i></div><span class="small muted b">${Math.round(prof/g.goal*100)}% of the ${money0(g.goal)} goal · ${n} of ${g.min!=null?g.min+(g.max!=null&&g.max!==g.min?"–"+g.max:""):"?"} pieces sold</span>`:`<span class="small muted">No goal set for this month.</span>`}
+    <div class="grid2" style="column-gap:16px">${goalCol("Sales",sales,g&&g.sales,"var(--ink)","var(--lav)")}${goalCol("Profit",prof,g&&g.goal,"var(--mint)","var(--pink)")}</div>
+    ${g&&(g.goal||g.sales||g.min!=null)?`<span class="small muted b">${n} of ${g.min!=null?g.min+(g.max!=null&&g.max!==g.min?"–"+g.max:""):"?"} pieces sold</span>`:`<span class="small muted">No goals set for this month.</span>`}
   </section>`;
   const B=`<section class="card" style="display:flex;flex-direction:column;gap:8px">
     <div class="between"><h2>Profit vs goal · ${y}</h2><div class="row small muted b" style="gap:12px"><span class="row" style="gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:var(--pink)"></span>Profit</span><span class="row" style="gap:5px"><span style="width:14px;height:2px;background:var(--ink)"></span>Goal</span></div></div>
@@ -330,7 +337,7 @@ function moneyPnl(){
     ${shown.map(r=>{const hit=r.g?Math.round((r.p||0)/r.g*100)+"%":"–";const cur=r.i===mo;const st=cur?' style="color:var(--pink);font-weight:800"':(r.p?"":' style="color:var(--muted)"');return`<span${st}>${MONTHS[r.i-1]}</span><span class="r"${st}>${money(r.p||0)}</span><span class="r muted">${r.g!=null?money0(r.g):"–"}</span><span class="r"${st}>${hit}</span>`;}).join("")}</div>
     <div style="height:1px;background:var(--line);margin:8px 0"></div>
     <div class="tbl" style="grid-template-columns:1fr 78px 66px 46px;font-weight:800"><span>Year so far</span><span class="r pos">${money0(yP)}</span><span class="r muted">${money0(yG)}</span><span class="r">${yG?Math.round(yP/yG*100)+"%":"–"}</span></div>
-    <p class="small muted" style="margin:6px 0 0">${yN} piece${yN===1?"":"s"} sold${pMax?" (forecast "+pMin+"–"+pMax+")":""} · ${money0(yS)} in sales${yS?" · "+pct(yP/yS)+" margin":""}${fullG?" · full-year goal "+money0(fullG):""}</p>
+    <p class="small muted" style="margin:6px 0 0">${yN} piece${yN===1?"":"s"} sold${pMax?" (forecast "+pMin+"–"+pMax+")":""} · ${money0(yS)} in sales${ySG?" ("+Math.round(yS/ySG*100)+"% of the "+money0(ySG)+" sales goal)":""}${yS?" · "+pct(yP/yS)+" margin":""}${fullG?" · full-year goal "+money0(fullG):""}</p>
   </section>`;
   return DESK?`<div class="dk-pnl"><div class="dk-pnl-l">${A}${B}</div>${C}</div>`:A+B+C;
 }

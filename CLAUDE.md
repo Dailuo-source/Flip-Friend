@@ -30,7 +30,7 @@ Business app for **Refinished by Cecilia**, Gary and Cecilia's furniture flippin
 - **Supplies**: Name (generic, e.g. "Water-based poly"), Category, Unit, On hand, Avg cost per unit, Reusable, In use, Low at, ID.
 - **Barcodes**: Barcode, Product name, Supply. Lookup via upcitemdb trial (100/day), then `genericName()` maps brands to shelf names.
 - **Expenses**: app-only spending; receipts OCR'd with Drive text recognition (temporary Doc, then trashed).
-- **Goals**: Year, Month, Profit goal, Pieces min, Pieces max, ID.
+- **Goals**: Year, Month, Profit goal, Pieces min, Pieces max, ID, Sales goal. Edited in Money → Profit & loss → Edit goals (`sheetGoals`, fields `GOALK`); the P&L card shows Sales and Profit each against its own goal (`goalCol`).
 - **Inspiration**: Project, Picture, Caption, ID.
 - **Settings** (hidden): Steps, Step details, Statuses, Units, Supply categories, Expense categories, Listing events, Platforms, Cost categories. Read-only to the app except **Cost categories** (op `set` → `setSetting_`, whitelisted; edited in Costs → Edit categories; renames carry over to Supply use rows).
 
@@ -43,7 +43,7 @@ Business app for **Refinished by Cecilia**, Gary and Cecilia's furniture flippin
 
 ## Changing things
 
-- App files: edit `src/`, run `sh build.sh`, bump `CACHE` in `web/sw.js` (currently `flip-friend-v7`), commit and push to `main`.
+- App files: edit `src/`, run `sh build.sh`, bump `CACHE` in `web/sw.js` (currently `flip-friend-v8`), commit and push to `main`.
 - Code.gs: paste into Apps Script (business account) and redeploy (Deploy → Manage deployments → pencil → New version).
 - Commits use author `Claude <noreply@anthropic.com>`.
 
@@ -73,15 +73,15 @@ API: op-batched like Pantry Pal, plus single calls through `runCall_` for upload
 
 ## Status
 - Working: live on flip-friend.pages.dev with history imported; desktop layout with bulk edit and batch expenses; Pending status; cost categories; sold pieces keep editable price history and market interest.
-- Backend: deployment at version 2 (Oct 22, 2026).
+- Backend: deployment at version 3 (Oct 23, 2026).
 - Open: (none recorded)
 
 ## Changelog (latest first, keep about 5 lines)
+- 2026-10-23: Monthly Sales goal (Goals tab column, Edit goals form, P&L card meter, year summary)
 - 2026-10-22: Costs grouped by editable cost categories in step order; sold pieces can still add price history and interest numbers (list price follows the last asking price)
 - 2026-10-21: Moved the site files into `web/`; only that folder is published
 - 2026-10-22: Trimmed this brief
 - 2026-10-19: Unique Drive names for new inspiration photos (`picName`)
-- 2026-10-19: Pending (sale pending) status
 
 ## Working efficiently
 - Find code with search first, then read only the relevant lines. Don't read index.html top to bottom.

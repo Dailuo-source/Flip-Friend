@@ -286,19 +286,21 @@ function sheetNewSupply(prefill,after){
 }
 
 /* ---------- goals ---------- */
+const GOALK=["sales","goal","min","max"];
 function sheetGoals(year){
   const y=year||+VIEW.month.slice(0,4);
   const years=[...new Set(S.goals.map(g=>g.year).concat([y,+today().slice(0,4),+today().slice(0,4)+1]))].sort();
   openSheet(`${head("Goals & forecast")}
     <div class="between"><label class="row small b muted" style="gap:8px">Year<select class="input" id="gYear" style="width:auto;height:38px">${years.map(v=>opt(v,y)).join("")}</select></label><button type="button" class="btn sm ghost" data-act="sh:fill">Fill empty months</button></div>
     <div class="card" style="padding:10px 12px;display:flex;flex-direction:column;gap:4px">
-      <div style="display:grid;grid-template-columns:1fr 96px 56px 56px;gap:6px;font-size:11px;font-weight:800;color:var(--muted)"><span>Month</span><span>Profit goal</span><span>Pieces min</span><span>max</span></div>
-      ${MONTHS.map((n,i)=>{const g=goalRow(y,i+1)||{};return`<div style="display:grid;grid-template-columns:1fr 96px 56px 56px;gap:6px;align-items:center" data-m="${i+1}"><span class="b small">${n.slice(0,3)}</span><input class="input" style="height:36px;padding:0 8px;font-size:14px" data-k="goal" inputmode="decimal" value="${g.goal??""}" aria-label="${n} profit goal"><input class="input" style="height:36px;padding:0 8px;font-size:14px" data-k="min" inputmode="numeric" value="${g.min??""}" aria-label="${n} pieces minimum"><input class="input" style="height:36px;padding:0 8px;font-size:14px" data-k="max" inputmode="numeric" value="${g.max??""}" aria-label="${n} pieces maximum"></div>`;}).join("")}
+      <div class="goalrow" style="font-size:11px;font-weight:800;color:var(--muted)"><span>Month</span><span>Sales goal</span><span>Profit goal</span><span>Pieces min</span><span>max</span></div>
+      ${MONTHS.map((n,i)=>{const g=goalRow(y,i+1)||{};const f=(k,lbl,im)=>`<input class="input" data-k="${k}" inputmode="${im}" value="${g[k]??""}" aria-label="${n} ${lbl}">`;return`<div class="goalrow" data-m="${i+1}"><span class="b small">${n.slice(0,3)}</span>${f("sales","sales goal","decimal")}${f("goal","profit goal","decimal")}${f("min","pieces minimum","numeric")}${f("max","pieces maximum","numeric")}</div>`;}).join("")}
     </div>
+    <span class="small muted">Sales goal is what you want to sell in the month (before costs). Profit goal is what you keep after the piece and supplies.</span>
     <button type="button" class="btn full" data-act="sh:save">Save goals</button>`,{
-    fill(sh){let last={};sh.querySelectorAll("[data-m]").forEach(r=>{["goal","min","max"].forEach(k=>{const el=r.querySelector(`[data-k=${k}]`);if(el.value.trim())last[k]=el.value;else if(last[k]!=null)el.value=last[k];});});},
-    save(sh){sh.querySelectorAll("[data-m]").forEach(r=>{const m=+r.dataset.m;const d={};["goal","min","max"].forEach(k=>{const v=r.querySelector(`[data-k=${k}]`).value.replace(/[$,\s]/g,"");d[k]=v===""?null:+v;});
-      const g=goalRow(y,m);if(g){if(g.goal!==d.goal||g.min!==d.min||g.max!==d.max)store.update("goals",g.id,d);}else if(d.goal!=null||d.min!=null||d.max!=null)store.add("goals",Object.assign({year:y,month:m},d));});
+    fill(sh){let last={};sh.querySelectorAll("[data-m]").forEach(r=>{GOALK.forEach(k=>{const el=r.querySelector(`[data-k=${k}]`);if(el.value.trim())last[k]=el.value;else if(last[k]!=null)el.value=last[k];});});},
+    save(sh){sh.querySelectorAll("[data-m]").forEach(r=>{const m=+r.dataset.m;const d={};GOALK.forEach(k=>{const v=r.querySelector(`[data-k=${k}]`).value.replace(/[$,\s]/g,"");d[k]=v===""?null:+v;});
+      const g=goalRow(y,m);if(g){if(GOALK.some(k=>(g[k]??null)!==d[k]))store.update("goals",g.id,d);}else if(GOALK.some(k=>d[k]!=null))store.add("goals",Object.assign({year:y,month:m},d));});
       closeSheet();toast("Goals saved");}},
     sh=>{sh.querySelector("#gYear").addEventListener("change",e=>sheetGoals(+e.target.value));});
 }
