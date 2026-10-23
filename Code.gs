@@ -72,7 +72,8 @@ const SCHEMA = {
   goals: {
     sheet: 'Goals', key: 'year',
     cols: [['year', 'Year', 'num'], ['month', 'Month', 'num'], ['goal', 'Profit goal', 'num'],
-      ['min', 'Pieces min', 'num'], ['max', 'Pieces max', 'num'], ['id', 'ID', 'id']],
+      ['min', 'Pieces min', 'num'], ['max', 'Pieces max', 'num'], ['id', 'ID', 'id'],
+      ['sales', 'Sales goal', 'num']],
   },
   inspiration: {
     sheet: 'Inspiration', key: 'picture',
