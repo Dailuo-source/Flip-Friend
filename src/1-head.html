@@ -173,7 +173,15 @@ nav.tabs svg{width:24px;height:24px}
 .fc{display:flex;flex-direction:column;gap:6px}
 .fbar{height:10px;border-radius:5px;background:var(--line);display:flex;overflow:hidden}.fbar i{display:block;height:100%}
 .fbar i.plan{background:repeating-linear-gradient(135deg,currentColor 0 3px,transparent 3px 6px)}
-.fstats div{display:flex;flex-direction:column;font-size:12px;font-weight:700}.fstats span{color:var(--muted)}.fstats b{font-size:14px;font-weight:800}
+.fstats div{display:flex;flex-direction:column;font-size:12px;font-weight:700}
+/* desktop month table: four even columns, header and values share alignment */
+body.desk .mrow{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:8px 12px}
+body.desk .mrow.mhead{padding:0 12px 6px}
+body.desk .mrow .s,body.desk .mrow .pr,body.desk .mrow .mn{font-size:14px}
+body.desk .hitb i{width:56px}
+body.desk .hitb>span{width:38px}
+body.desk .mtbl{padding:12px 10px}
+.fstats span{color:var(--muted)}.fstats b{font-size:14px;font-weight:800}
 .gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .gallery figure{margin:0;display:flex;flex-direction:column;gap:5px}
 .gallery .ph{position:relative;height:150px;border-radius:14px;background:var(--raise);overflow:hidden;display:flex;align-items:center;justify-content:center;border:0;padding:0;width:100%}

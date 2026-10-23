@@ -43,7 +43,7 @@ Business app for **Refinished by Cecilia**, Gary and Cecilia's furniture flippin
 
 ## Changing things
 
-- App files: edit `src/`, run `sh build.sh`, bump `CACHE` in `web/sw.js` (currently `flip-friend-v9`), commit and push to `main`.
+- App files: edit `src/`, run `sh build.sh`, bump `CACHE` in `web/sw.js` (currently `flip-friend-v10`), commit and push to `main`.
 - Code.gs: paste into Apps Script (business account) and redeploy (Deploy → Manage deployments → pencil → New version).
 - Commits use author `Claude <noreply@anthropic.com>`.
 
@@ -77,6 +77,7 @@ API: op-batched like Pantry Pal, plus single calls through `runCall_` for upload
 - Open: (none recorded)
 
 ## Changelog (latest first, keep about 5 lines)
+- 2026-10-23: Desktop month table uses four even columns
 - 2026-10-23: P&L redesign (mock-up approved): sales/profit side-by-side chart with goal ticks, pieces tiles, month-by-month table with hit bars, year forecast (so far / on plan / at this pace); goals by margin %, single pieces goal, Plan the year
 - 2026-10-23: Monthly Sales goal (Goals tab column, Edit goals form, P&L card meter, year summary)
 - 2026-10-22: Costs grouped by editable cost categories in step order; sold pieces can still add price history and interest numbers (list price follows the last asking price)
