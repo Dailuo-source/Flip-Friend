@@ -286,23 +286,52 @@ function sheetNewSupply(prefill,after){
 }
 
 /* ---------- goals ---------- */
-const GOALK=["sales","goal","min","max"];
-function sheetGoals(year){
+/* Goals tab fields: Sales goal, Profit goal, Margin %, Pieces (min = max = one number). */
+function sheetGoals(year,draft,mode){
   const y=year||+VIEW.month.slice(0,4);
+  mode=mode||LS.get("gmode","pct");
   const years=[...new Set(S.goals.map(g=>g.year).concat([y,+today().slice(0,4),+today().slice(0,4)+1]))].sort();
+  const D=draft||MONTHS.map((n,i)=>{const g=goalRow(y,i+1)||{};return{sales:g.sales??null,goal:g.goal??null,pct:g.pct??(g.sales&&g.goal!=null?Math.round(g.goal/g.sales*100):null),pcs:pieceGoal(g)};});
+  const curM=+VIEW.month.slice(5,7),pctMode=mode==="pct";
+  const gProfit=d=>pctMode?(d.sales!=null&&d.pct!=null?Math.round(d.sales*d.pct/100):d.goal):d.goal;
+  const pctOf=d=>pctMode?d.pct:(d.sales&&d.goal!=null?Math.round(d.goal/d.sales*100):null);
+  const inp=(i,k,v,lbl,im)=>`<input class="input" data-m="${i}" data-k="${k}" inputmode="${im||"decimal"}" value="${v??""}" aria-label="${MONTHS[i]} ${lbl}">`;
+  const read=sh=>{sh.querySelectorAll("[data-m][data-k]").forEach(el=>{const v=el.value.replace(/[$,%\s]/g,"");D[+el.dataset.m][el.dataset.k]=v===""?null:+v;});};
+  const totals=()=>{const ts=D.reduce((a,d)=>a+(d.sales||0),0),tp=D.reduce((a,d)=>a+(gProfit(d)||0),0),tn=D.reduce((a,d)=>a+(d.pcs||0),0);return{ts,tp,tn,tm:ts?Math.round(tp/ts*100):null};};
+  const refresh=sh=>{read(sh);D.forEach((d,i)=>{const o=sh.querySelector(`[data-out="${i}"]`);if(o)o.textContent=pctMode?(gProfit(d)!=null?money0(gProfit(d)):"–"):(pctOf(d)!=null?pctOf(d)+"%":"–");});
+    const t=totals();sh.querySelector("#gTot").innerHTML=`<span>Year</span><span>${money0(t.ts)}</span><span>${pctMode?(t.tm!=null?t.tm+"%":"–"):money0(t.tp)}</span><span class="out">${pctMode?money0(t.tp):(t.tm!=null?t.tm+"%":"–")}</span><span>${t.tn}</span>`;
+    const ys=numv(sh,"#gYS"),ym=numv(sh,"#gYM");sh.querySelector("#gYP").textContent=ys!=null&&ym!=null?money0(Math.round(ys*ym/100)):"–";};
+  const t0=totals();
   openSheet(`${head("Goals & forecast")}
     <div class="between"><label class="row small b muted" style="gap:8px">Year<select class="input" id="gYear" style="width:auto;height:38px">${years.map(v=>opt(v,y)).join("")}</select></label><button type="button" class="btn sm ghost" data-act="sh:fill">Fill empty months</button></div>
+    <section class="card" style="display:flex;flex-direction:column;gap:8px">
+      <div class="between"><h2>Plan the year</h2><span class="small muted b">optional shortcut</span></div>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 76px minmax(0,1fr);gap:8px;align-items:end">
+        <label class="f">Yearly sales goal<input class="input" id="gYS" inputmode="decimal" value="${t0.ts||""}"></label>
+        <label class="f">Margin<input class="input" id="gYM" inputmode="decimal" value="${t0.tm??""}"></label>
+        <div class="f"><span>Yearly profit</span><span id="gYP" style="height:44px;display:flex;align-items:center;font-size:16px;font-weight:800;color:var(--mint)">–</span></div>
+      </div>
+      <div class="row" style="gap:8px"><button type="button" class="btn sm ghost" style="flex:1" data-act="sh:split" data-v="even">Split evenly</button><button type="button" class="btn sm ghost" style="flex:1" data-act="sh:split" data-v="mix">Keep my month mix</button></div>
+    </section>
+    <div class="between"><span class="small b muted">Set profit goal as</span><div class="seg" style="width:190px"><button type="button" class="${pctMode?"":"on"}" data-act="sh:mode" data-v="usd" aria-pressed="${!pctMode}">Dollars</button><button type="button" class="${pctMode?"on":""}" data-act="sh:mode" data-v="pct" aria-pressed="${pctMode}">% of sales</button></div></div>
     <div class="card" style="padding:10px 12px;display:flex;flex-direction:column;gap:4px">
-      <div class="goalrow" style="font-size:11px;font-weight:800;color:var(--muted)"><span>Month</span><span>Sales goal</span><span>Profit goal</span><span>Pieces min</span><span>max</span></div>
-      ${MONTHS.map((n,i)=>{const g=goalRow(y,i+1)||{};const f=(k,lbl,im)=>`<input class="input" data-k="${k}" inputmode="${im}" value="${g[k]??""}" aria-label="${n} ${lbl}">`;return`<div class="goalrow" data-m="${i+1}"><span class="b small">${n.slice(0,3)}</span>${f("sales","sales goal","decimal")}${f("goal","profit goal","decimal")}${f("min","pieces minimum","numeric")}${f("max","pieces maximum","numeric")}</div>`;}).join("")}
+      <div class="goalrow" style="font-size:11px;font-weight:800;color:var(--muted)"><span>Mon</span><span>Sales goal</span><span>${pctMode?"Margin":"Profit goal"}</span><span>${pctMode?"Profit goal":"Margin"}</span><span>Pieces</span></div>
+      ${D.map((d,i)=>`<div class="goalrow${i+1===curM&&y===+VIEW.month.slice(0,4)?" now":""}"><span class="b small">${MONTHS[i].slice(0,3)}</span>${inp(i,"sales",d.sales,"sales goal")}${pctMode?inp(i,"pct",d.pct,"margin percent"):inp(i,"goal",d.goal,"profit goal")}<span class="out" data-out="${i}"></span>${inp(i,"pcs",d.pcs,"pieces goal","numeric")}</div>`).join("")}
+      <div class="goalrow tot" id="gTot"></div>
     </div>
-    <span class="small muted">Sales goal is what you want to sell in the month (before costs). Profit goal is what you keep after the piece and supplies.</span>
+    <span class="small muted">${pctMode?"Type the margin and the profit goal works itself out. Switch to Dollars to type profit goals directly.":"Type profit goals directly; the margin shows what they work out to."}</span>
     <button type="button" class="btn full" data-act="sh:save">Save goals</button>`,{
-    fill(sh){let last={};sh.querySelectorAll("[data-m]").forEach(r=>{GOALK.forEach(k=>{const el=r.querySelector(`[data-k=${k}]`);if(el.value.trim())last[k]=el.value;else if(last[k]!=null)el.value=last[k];});});},
-    save(sh){sh.querySelectorAll("[data-m]").forEach(r=>{const m=+r.dataset.m;const d={};GOALK.forEach(k=>{const v=r.querySelector(`[data-k=${k}]`).value.replace(/[$,\s]/g,"");d[k]=v===""?null:+v;});
-      const g=goalRow(y,m);if(g){if(GOALK.some(k=>(g[k]??null)!==d[k]))store.update("goals",g.id,d);}else if(GOALK.some(k=>d[k]!=null))store.add("goals",Object.assign({year:y,month:m},d));});
+    mode(sh,b){read(sh);if(b.dataset.v==="usd")D.forEach(d=>{d.goal=gProfit(d);});else D.forEach(d=>{if(d.sales&&d.goal!=null)d.pct=Math.round(d.goal/d.sales*100);});
+      LS.set("gmode",b.dataset.v);sheetGoals(y,D,b.dataset.v);},
+    split(sh,b){read(sh);const ys=numv(sh,"#gYS"),ym=numv(sh,"#gYM");if(ys==null){toast("Enter a yearly sales goal.");return;}
+      const base=D.reduce((a,d)=>a+(d.sales||0),0),mix=b.dataset.v==="mix"&&base>0;
+      D.forEach(d=>{d.sales=Math.round((mix?(d.sales||0)/base*ys:ys/12)/10)*10;if(ym!=null){d.pct=ym;d.goal=Math.round(d.sales*ym/100);}});
+      sheetGoals(y,D,mode);toast(mix?"Split by your month mix":"Split evenly");},
+    fill(sh){read(sh);let last={};D.forEach(d=>{["sales","goal","pct","pcs"].forEach(k=>{if(d[k]!=null)last[k]=d[k];else if(last[k]!=null)d[k]=last[k];});});sheetGoals(y,D,mode);},
+    save(sh){read(sh);D.forEach((d,i)=>{const m=i+1;const out={sales:d.sales,goal:gProfit(d)??null,pct:pctOf(d)??null,min:d.pcs,max:d.pcs};
+      const g=goalRow(y,m);if(g){if(["sales","goal","pct","min","max"].some(k=>(g[k]??null)!==(out[k]??null)))store.update("goals",g.id,out);}else if(Object.values(out).some(v=>v!=null))store.add("goals",Object.assign({year:y,month:m},out));});
       closeSheet();toast("Goals saved");}},
-    sh=>{sh.querySelector("#gYear").addEventListener("change",e=>sheetGoals(+e.target.value));});
+    sh=>{sh.querySelector("#gYear").addEventListener("change",e=>sheetGoals(+e.target.value,null,mode));sh.addEventListener("input",()=>refresh(sh));refresh(sh);});
 }
 
 /* ---------- expenses and receipts ---------- */

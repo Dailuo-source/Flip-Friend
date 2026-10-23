@@ -89,7 +89,7 @@ const store={
 function normalize(st){
   const out={};st=st||{};
   COLLS.forEach(c=>{out[c]=(st[c]||[]).map(r=>Object.assign({},r));});
-  const nums={projects:["paid","list","sold","fee","profit"],timelog:["hours"],listings:["price","views","saves","inquiries"],supplyuse:["amount","cost"],supplies:["onHand","avgCost","inUse","lowAt"],expenses:["amount"],goals:["year","month","goal","sales","min","max"]};
+  const nums={projects:["paid","list","sold","fee","profit"],timelog:["hours"],listings:["price","views","saves","inquiries"],supplyuse:["amount","cost"],supplies:["onHand","avgCost","inUse","lowAt"],expenses:["amount"],goals:["year","month","goal","sales","pct","min","max"]};
   Object.keys(nums).forEach(c=>out[c].forEach(r=>nums[c].forEach(k=>{r[k]=N(r[k]);})));
   out.projects.forEach(p=>{p.no=String(p.no==null?"":p.no).trim();p.status=normStatus(p.status);});
   ["timelog","listings","supplyuse","expenses","inspiration"].forEach(c=>out[c].forEach(r=>{r.project=String(r.project==null?"":r.project).trim();}));

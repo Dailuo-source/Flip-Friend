@@ -305,39 +305,66 @@ function goalCol(label,v,goal,color,bar){
   return`<div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span class="small muted b">${label}</span><span class="b" style="font-size:22px;color:${color}">${money(v)}</span>
     ${goal?`<div class="track"><i style="width:${Math.max(0,Math.min(100,pc))}%;background:${bar}"></i></div><span class="small muted b">${pc}% of ${money0(goal)} goal</span>`:`<button type="button" class="link" style="font-size:12px;align-self:flex-start;padding:0" data-act="goals">Set a ${label.toLowerCase()} goal</button>`}</div>`;
 }
+/** Pieces goal for a month (one number; stored in Pieces min and max). */
+const pieceGoal=g=>g?(g.min!=null?g.min:g.max!=null?g.max:null):null;
+/** Pieces sold as tiles: filled for each sold, dashed for each still to go. */
+function piecesVis(n,goal){
+  const slots=Math.min(10,Math.max(n,goal||0)),ic=I.projects.replace("<svg",'<svg width="20" height="20"');
+  let t="";for(let i=0;i<slots;i++)t+=`<span class="pslot${i<n?" on":""}">${ic}</span>`;
+  return`<div class="pvis"><div class="pslots" role="img" aria-label="${n} of ${goal!=null?goal:"?"} pieces sold">${t}</div><div class="pnum"><span>${n} sold</span><small>${goal!=null?"goal "+goal+" piece"+(goal===1?"":"s"):"no pieces goal"}</small></div></div>`;
+}
 function moneyPnl(){
   const m=VIEW.month,y=+m.slice(0,4),mo=+m.slice(5,7),g=goalRow(y,mo);
   const prof=monthProfit(m),sales=monthSales(m),n=soldIn(m).length;
-  const lastM=y<+today().slice(0,4)?12:y>+today().slice(0,4)?0:+today().slice(5,7);
-  const rows=[];for(let i=1;i<=12;i++){const k=y+"-"+pad(i),gr=goalRow(y,i);rows.push({i,k,p:i<=lastM?monthProfit(k):null,g:gr&&gr.goal!=null?gr.goal:null,n:i<=lastM?soldIn(k).length:null});}
-  const shown=rows.filter(r=>r.i<=Math.max(lastM,1));
-  const maxV=Math.max(1,...shown.map(r=>Math.max(r.p||0,r.g||0)));const top=Math.ceil(maxV/500)*500;
-  const dw=DESK?Math.max(480,Math.round((innerWidth-236-56-(innerWidth>1300?16:0))*(innerWidth>1300?2/3:1)-44)):0,W=DESK?dw:330,H=DESK?260:140,fs=DESK?12:10,x0=DESK?44:34,x1=W-2,y0=H-24,y1=DESK?16:10,bw=(x1-x0)/12,hb=DESK?Math.min(18,bw*.3):8;
-  const yy=v=>y0-(v/top)*(y0-y1);
-  const grid=[0,top/2,top].map(v=>`<line x1="${x0}" y1="${yy(v).toFixed(1)}" x2="${x1}" y2="${yy(v).toFixed(1)}" stroke="#352F42"/><text x="${x0-4}" y="${(yy(v)+3).toFixed(1)}" text-anchor="end" fill="#ABA3BC" font-size="${fs}" font-weight="700">${v>=1000?"$"+(v/1000)+"k":"$"+v}</text>`).join("");
-  const bars=rows.map(r=>{const cx=x0+bw*(r.i-.5);let s="";if(r.p>0)s+=`<rect x="${(cx-hb).toFixed(1)}" y="${yy(r.p).toFixed(1)}" width="${(hb*2).toFixed(1)}" height="${(y0-yy(r.p)).toFixed(1)}" rx="3" fill="#F27BA0"><title>${MONTHS[r.i-1]}: ${money(r.p)}${r.g!=null?" of "+money0(r.g):""}</title></rect>`;
-    if(r.g!=null)s+=`<line x1="${(cx-hb-3.5).toFixed(1)}" y1="${yy(r.g).toFixed(1)}" x2="${(cx+hb+3.5).toFixed(1)}" y2="${yy(r.g).toFixed(1)}" stroke="#EDE8F5" stroke-width="2" stroke-linecap="round"/>`;
-    s+=`<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" fill="${r.i===mo?"#EDE8F5":"#ABA3BC"}" font-size="${fs}" font-weight="700">${MONTHS[r.i-1][0]}</text>`;return s;}).join("");
-  const yP=r2(shown.reduce((s,r)=>s+(r.p||0),0)),yG=shown.reduce((s,r)=>s+(r.g||0),0),yN=shown.reduce((s,r)=>s+(r.n||0),0);
-  const fullG=rows.reduce((s,r)=>s+(r.g||0),0);
-  const yrRows=rows.map(r=>goalRow(y,r.i)).filter(Boolean);const pMin=yrRows.reduce((s,g)=>s+(g.min||0),0),pMax=yrRows.reduce((s,g)=>s+(g.max||0),0);
-  const yS=S.projects.filter(p=>p.status==="Sold"&&p.soldOn&&p.soldOn.slice(0,4)===String(y)).reduce((s,p)=>s+(p.sold||0),0);
-  const ySG=shown.reduce((s,r)=>{const gr=goalRow(y,r.i);return s+(gr&&gr.sales||0);},0);
-  const A=`<section class="card" style="display:flex;flex-direction:column;gap:6px">
+  const ty=+today().slice(0,4),lastM=y<ty?12:y>ty?0:+today().slice(5,7),nowK=today().slice(0,7);
+  const rows=[];for(let i=1;i<=12;i++){const k=y+"-"+pad(i),gr=goalRow(y,i),past=i<=lastM;
+    rows.push({i,k,s:past?monthSales(k):null,p:past?monthProfit(k):null,n:past?soldIn(k).length:null,gs:gr&&gr.sales!=null?gr.sales:null,gp:gr&&gr.goal!=null?gr.goal:null,gn:pieceGoal(gr)});}
+  /* A: this month */
+  const A=`<section class="card" style="display:flex;flex-direction:column;gap:8px">
     <div class="between"><span class="b small" style="font-size:13px">${esc(monthName(m))}</span><button type="button" class="btn sm ghost" style="height:30px;font-size:12px" data-act="goals">Edit goals</button></div>
     <div class="grid2" style="column-gap:16px">${goalCol("Sales",sales,g&&g.sales,"var(--ink)","var(--lav)")}${goalCol("Profit",prof,g&&g.goal,"var(--mint)","var(--pink)")}</div>
-    ${g&&(g.goal||g.sales||g.min!=null)?`<span class="small muted b">${n} of ${g.min!=null?g.min+(g.max!=null&&g.max!==g.min?"–"+g.max:""):"?"} pieces sold</span>`:`<span class="small muted">No goals set for this month.</span>`}
+    ${piecesVis(n,pieceGoal(g))}
   </section>`;
+  /* B: sales and profit side by side, a goal line over each bar */
+  const maxV=Math.max(1,...rows.map(r=>Math.max(r.s||0,r.p||0,r.gs||0,r.gp||0)));const step=maxV>2000?1000:500,top=Math.ceil(maxV/step)*step;
+  const dw=DESK?Math.max(480,Math.round((innerWidth-236-56-(innerWidth>1300?16:0))*(innerWidth>1300?2/3:1)-44)):0,W=DESK?dw:330,H=DESK?260:150,fs=DESK?12:10,x0=DESK?48:36,x1=W-2,y0=H-24,y1=DESK?16:12,bw=(x1-x0)/12,hb=DESK?Math.min(9,bw*.17):4.25,gap=DESK?1.5:.75;
+  const yy=v=>y0-(v/top)*(y0-y1),f=v=>v.toFixed(1);
+  const lab=v=>v>=1000?"$"+(v/1000)+"k":"$"+v;
+  const grid=[0,top/2,top].map(v=>`<line x1="${x0}" y1="${f(yy(v))}" x2="${x1}" y2="${f(yy(v))}" stroke="#352F42"/><text x="${x0-4}" y="${f(yy(v)+3)}" text-anchor="end" fill="#ABA3BC" font-size="${fs}" font-weight="700">${lab(v)}</text>`).join("");
+  const barR=(cx,v,c,t)=>v>0?`<rect x="${f(cx-hb)}" y="${f(yy(v))}" width="${f(hb*2)}" height="${f(y0-yy(v))}" rx="2.5" fill="${c}"><title>${t}</title></rect>`:"";
+  const tk=(cx,v)=>v!=null?`<line x1="${f(cx-hb-1.5)}" y1="${f(yy(v))}" x2="${f(cx+hb+1.5)}" y2="${f(yy(v))}" stroke="#EDE8F5" stroke-width="2" stroke-linecap="round"/>`:"";
+  const bars=rows.map(r=>{const cx=x0+bw*(r.i-.5),cs=cx-hb-gap,cp=cx+hb+gap,M3=MONTHS[r.i-1];
+    return barR(cs,r.s,"#C4B8F5",`${M3} sales: ${money(r.s||0)}${r.gs!=null?" of "+money0(r.gs):""}`)+barR(cp,r.p,"#F27BA0",`${M3} profit: ${money(r.p||0)}${r.gp!=null?" of "+money0(r.gp):""}`)+tk(cs,r.gs)+tk(cp,r.gp)
+      +`<text x="${f(cx)}" y="${H-6}" text-anchor="middle" fill="${r.i===mo?"#EDE8F5":"#ABA3BC"}" font-size="${fs}" font-weight="700">${M3[0]}</text>`;}).join("");
+  const key=(c,t,line)=>`<span class="row" style="gap:5px"><span style="${line?"width:14px;height:2px":"width:10px;height:10px;border-radius:3px"};background:${c}"></span>${t}</span>`;
   const B=`<section class="card" style="display:flex;flex-direction:column;gap:8px">
-    <div class="between"><h2>Profit vs goal · ${y}</h2><div class="row small muted b" style="gap:12px"><span class="row" style="gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:var(--pink)"></span>Profit</span><span class="row" style="gap:5px"><span style="width:14px;height:2px;background:var(--ink)"></span>Goal</span></div></div>
-    <svg width="100%" viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly profit against goal for ${y}" style="font-family:Nunito,sans-serif">${grid}${bars}</svg>
+    <h2>Sales &amp; profit vs goal · ${y}</h2>
+    <div class="row small muted b" style="gap:12px;flex-wrap:wrap">${key("var(--lav)","Sales")}${key("var(--pink)","Profit")}${key("var(--ink)","Goal (over each bar)",1)}</div>
+    <svg width="100%" viewBox="0 0 ${W} ${H}" role="img" aria-label="Monthly sales and profit against their goals for ${y}" style="font-family:Nunito,sans-serif">${grid}${bars}</svg>
   </section>`;
-  const C=`<section class="card" style="padding:10px 14px">
-    <div class="tbl" style="grid-template-columns:1fr 78px 66px 46px"><span class="small muted b">Month</span><span class="small muted b r">Profit</span><span class="small muted b r">Goal</span><span class="small muted b r">Hit</span>
-    ${shown.map(r=>{const hit=r.g?Math.round((r.p||0)/r.g*100)+"%":"–";const cur=r.i===mo;const st=cur?' style="color:var(--pink);font-weight:800"':(r.p?"":' style="color:var(--muted)"');return`<span${st}>${MONTHS[r.i-1]}</span><span class="r"${st}>${money(r.p||0)}</span><span class="r muted">${r.g!=null?money0(r.g):"–"}</span><span class="r"${st}>${hit}</span>`;}).join("")}</div>
-    <div style="height:1px;background:var(--line);margin:8px 0"></div>
-    <div class="tbl" style="grid-template-columns:1fr 78px 66px 46px;font-weight:800"><span>Year so far</span><span class="r pos">${money0(yP)}</span><span class="r muted">${money0(yG)}</span><span class="r">${yG?Math.round(yP/yG*100)+"%":"–"}</span></div>
-    <p class="small muted" style="margin:6px 0 0">${yN} piece${yN===1?"":"s"} sold${pMax?" (forecast "+pMin+"–"+pMax+")":""} · ${money0(yS)} in sales${ySG?" ("+Math.round(yS/ySG*100)+"% of the "+money0(ySG)+" sales goal)":""}${yS?" · "+pct(yP/yS)+" margin":""}${fullG?" · full-year goal "+money0(fullG):""}</p>
+  /* C: month by month */
+  const shown=rows.filter(r=>r.i<=Math.max(lastM,1));
+  const hitB=(v,goal,dim)=>{if(!goal)return`<span class="hitb"><span class="muted">–</span></span>`;const h=Math.round((v||0)/goal*100);return`<span class="hitb"><i><b style="width:${Math.min(100,h)}%;background:${h>=100?"var(--mint)":"var(--pink)"}"></b></i><span${dim?' class="dim"':""}>${h}%</span></span>`;};
+  const yS=r2(shown.reduce((a,r)=>a+(r.s||0),0)),yP=r2(shown.reduce((a,r)=>a+(r.p||0),0)),yGP=shown.reduce((a,r)=>a+(r.gp||0),0);
+  const C=`<section class="card mtbl">
+    <div class="between" style="padding:2px 6px 6px"><h2>Month by month</h2><span class="small muted b">hit = profit goal</span></div>
+    <div class="mrow mhead"><span></span><span class="r">${key("var(--lav)","Sales")}</span><span class="r">${key("var(--pink)","Profit")}</span><span class="r">Hit</span></div>
+    ${shown.map(r=>{const sel=r.k===m,dim=!r.n;return`<div class="mrow${sel?" now":""}${dim?" dim":""}"><span class="mn">${MONTHS[r.i-1].slice(0,3)}${r.k===nowK?" · now":""}</span>${dim?`<span class="r none">No sales</span>`:`<span class="r s">${money0(r.s)}</span><span class="r pr">${money0(r.p)}</span>`}${hitB(r.p,r.gp,dim)}</div>`;}).join("")}
+    <div class="mrow mtot"><span class="mn">Year</span><span class="r s">${money0(yS)}</span><span class="r pr">${money0(yP)}</span>${hitB(yP,yGP)}</div>
   </section>`;
-  return DESK?`<div class="dk-pnl"><div class="dk-pnl-l">${A}${B}</div>${C}</div>`:A+B+C;
+  /* D: year forecast */
+  const left=12-lastM,sum=(k,from,to)=>rows.filter(r=>r.i>from&&r.i<=to).reduce((a,r)=>a+(r[k]||0),0);
+  const fc=(label,so,goal,rest,color,fmt)=>{const plan=so+rest,pace=lastM?so/lastM*12:null;
+    const w1=goal?Math.min(100,so/goal*100):0,w2=goal?Math.max(0,Math.min(100-w1,rest/goal*100)):0;
+    return`<div class="fc"><div class="between"><span class="b">${label}</span><span class="small muted b">${goal?"goal "+fmt(goal):"no goal set"}</span></div>
+      <div class="fbar"><i style="width:${f(w1)}%;background:${color}"></i><i class="plan" style="width:${f(w2)}%;color:${color}"></i></div>
+      <div class="grid3 fstats"><div><span>So far</span><b>${fmt(so)}</b></div><div><span>On plan</span><b>${fmt(plan)}</b></div><div><span>At this pace</span><b>${pace!=null?fmt(pace):"–"}</b></div></div></div>`;};
+  const D=`<section class="card" style="display:flex;flex-direction:column;gap:12px">
+    <div class="between"><h2>${y} forecast</h2><span class="small muted b">${left?left+" month"+(left===1?"":"s")+" left":"year done"}</span></div>
+    ${fc("Sales",yS,sum("gs",0,12),sum("gs",lastM,12),"var(--lav)",money0)}
+    ${fc("Profit",yP,sum("gp",0,12),sum("gp",lastM,12),"var(--pink)",money0)}
+    ${fc("Pieces sold",shown.reduce((a,r)=>a+(r.n||0),0),sum("gn",0,12),sum("gn",lastM,12),"var(--mint)",v=>String(Math.round(v)))}
+    <span class="small muted">Solid = so far. Striped = what the rest of the year adds if you hit its goals (On plan). At this pace = your monthly average so far × 12.</span>
+  </section>`;
+  return DESK?`<div class="dk-pnl"><div class="dk-pnl-l">${A}${B}</div><div class="dk-pnl-l">${C}${D}</div></div>`:A+B+C+D;
 }
