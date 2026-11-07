@@ -2,7 +2,7 @@
 
 > **Claude: read this first.** Open only the files a change touches; use the code map to jump to a function.
 > **`web/index.html` is generated** from `src/` by `build.sh` (~130 KB). Never read or edit it; edit `src/`, then run `sh build.sh`. The `src/` files are large too: search for function names.
-> At the end of a work session, update **Status** and add one line to **Changelog** (keep about 5).
+> At the end of a work session, update **Status** and add one line to **Changelog** (keep about 5). Keep **For Gary** current too: tick off (delete) what's done, add each step Gary must do himself (deploy, sheet menus, settings, checks). App Atlas reads Status, For Gary and Changelog to show where each app is.
 
 Business app for **Refinished by Cecilia**, Gary and Cecilia's furniture flipping business: projects (pieces bought to flip), hours per step, supplies and supply use, listings and market interest, sales and profit against monthly goals, and business spending (separate from Gary's audit expense sheet). Samsung Android phones (Chrome PWA) and desktop browsers (wide screens get a desktop layout). Dark mode only.
 
@@ -75,6 +75,12 @@ API: op-batched like Pantry Pal, plus single calls through `runCall_` for upload
 - Working: live on flip-friend.pages.dev with history imported; desktop layout with bulk edit and batch expenses; Pending status; cost categories; sold pieces keep editable price history and market interest.
 - Backend: deployment at version 4 (Oct 23, 2026).
 - Open: (none recorded)
+
+## For Gary
+
+Steps only Gary can do (App Atlas shows these as his to-dos). One line each; delete a line once it's done.
+
+- Nothing right now.
 
 ## Changelog (latest first, keep about 5 lines)
 - 2026-10-23: Desktop month table uses four even columns
