@@ -274,7 +274,7 @@ async function uploadPicture(file,kind,name){const data=await resizeImage(file,1
 
 /* ---------- small UI helpers ---------- */
 let toastT=null;
-function toast(msg){let el=$("#toast");if(!el){el=document.createElement("div");el.id="toast";el.className="toast";el.setAttribute("role","status");document.body.appendChild(el);}el.textContent=msg;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{el.hidden=true;},3200);}
+function toast(msg){let el=$("#toast");if(!el){el=document.createElement("div");el.id="toast";el.className="toast";el.setAttribute("role","status");document.body.appendChild(el);MP.watch(el);}el.textContent=msg;el.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{el.hidden=true;},3200);}
 function busy(on,msg){let el=$("#busy");if(!on){if(el)el.remove();return;}if(!el){el=document.createElement("div");el.id="busy";el.className="busy";document.body.appendChild(el);}el.innerHTML='<div class="spin" aria-hidden="true"></div><div>'+esc(msg||"Working…")+'</div>';}
 const opt=(v,sel,label)=>`<option value="${esc(v)}"${same(v,sel)?" selected":""}>${esc(label==null?v:label)}</option>`;
 function statusChip(p){

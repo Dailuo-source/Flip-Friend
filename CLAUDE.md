@@ -82,13 +82,17 @@ Steps only Gary can do (App Atlas shows these as his to-dos). One line each; del
 
 - Nothing right now.
 
+## Motion
+
+- **Motion pack** (`window.MP`, same copy in every app; Climb Buddy is the model): the `<script>` block before `</body>` in `src/4-actions.js` (end, before `</body>`), set up by the `MP.init({...})` line under it. Panels rise from the bottom and slip back down, toasts rise and slip away (setting `.hidden = true` plays the slip-away first, then hides; the app still reads `.hidden` as true at once), a new screen's pieces rise in one after another, and a new row on the same screen rises in. Unhurried (Gary wants animations easy to see); off under reduced motion. If a close function empties or removes the panel, do it after `MP.ms` (or use `MP.out(el, done)`), or the panel slides away empty.
+
 ## Changelog (latest first, keep about 5 lines)
+- 2026-11-12: Motion pack: panels and toasts rise and slip away, new screens rise in, new rows rise in. sw v11
 - 2026-10-23: Desktop month table uses four even columns
 - 2026-10-23: P&L redesign (mock-up approved): sales/profit side-by-side chart with goal ticks, pieces tiles, month-by-month table with hit bars, year forecast (so far / on plan / at this pace); goals by margin %, single pieces goal, Plan the year
 - 2026-10-23: Monthly Sales goal (Goals tab column, Edit goals form, P&L card meter, year summary)
 - 2026-10-22: Costs grouped by editable cost categories in step order; sold pieces can still add price history and interest numbers (list price follows the last asking price)
 - 2026-10-21: Moved the site files into `web/`; only that folder is published
-- 2026-10-22: Trimmed this brief
 
 ## Working efficiently
 - Find code with search first, then read only the relevant lines. Don't read index.html top to bottom.
